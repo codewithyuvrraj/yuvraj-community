@@ -236,24 +236,32 @@ class ChatManager {
     setupRealtimeListeners() {
         if (!window.isSupabaseEnabled || !window.supabase) return;
 
-        window.supabase
-            .channel('messages')
+        this.realtimeChannel = window.supabase
+            .channel('public:messages', {
+                config: {
+                    broadcast: { self: false }
+                }
+            })
             .on('postgres_changes', {
                 event: 'INSERT',
                 schema: 'public',
                 table: 'messages'
             }, (payload) => {
+                console.log('Real-time message received:', payload);
                 const message = payload.new;
                 
                 // Only show if it's for current conversation and not from current user
                 if (this.currentConversation && 
                     message.conversation_id === this.currentConversation.conversationId &&
                     message.sender_id !== window.authManager.currentUser.id) {
+                    console.log('Adding message to UI:', message);
                     this.addMessageToUI(message);
                     this.scrollToBottom();
                 }
             })
-            .subscribe();
+            .subscribe((status) => {
+                console.log('Real-time subscription status:', status);
+            });
     }
 
     async handleFileUpload(file) {
