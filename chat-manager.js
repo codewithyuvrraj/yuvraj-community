@@ -4,19 +4,10 @@ class ChatManager {
         this.currentConversation = null;
         this.messages = [];
         this.isInitialized = false;
-        this.supabase = null;
-        this.isSupabaseEnabled = false;
     }
 
     initialize() {
         if (this.isInitialized) return;
-        
-        // Get Supabase from global scope
-        if (window.supabase && window.isSupabaseEnabled) {
-            this.supabase = window.supabase;
-            this.isSupabaseEnabled = window.isSupabaseEnabled;
-        }
-        
         this.setupEventListeners();
         this.isInitialized = true;
         console.log('ChatManager initialized');
@@ -67,8 +58,8 @@ class ChatManager {
 
             // Get user info
             let otherUser;
-            if (this.isSupabaseEnabled && this.supabase) {
-                const { data, error } = await this.supabase
+            if (window.isSupabaseEnabled && window.supabase) {
+                const { data, error } = await window.supabase
                     .from('profiles')
                     .select('*')
                     .eq('id', userId)
@@ -118,8 +109,8 @@ class ChatManager {
             messagesContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #6b7280;">Loading messages...</div>';
 
             let messages = [];
-            if (this.isSupabaseEnabled && this.supabase) {
-                const { data, error } = await this.supabase
+            if (window.isSupabaseEnabled && window.supabase) {
+                const { data, error } = await window.supabase
                     .from('messages')
                     .select('*')
                     .eq('conversation_id', this.currentConversation.conversationId)
@@ -179,15 +170,7 @@ class ChatManager {
         const input = document.getElementById('messageInput');
         const text = input.value.trim();
         
-        if (!text || !this.currentConversation) {
-            console.log('No text or conversation');
-            return;
-        }
-
-        console.log('Sending message:', text);
-        console.log('Current conversation:', this.currentConversation);
-        console.log('Supabase enabled:', this.isSupabaseEnabled);
-        console.log('Current user:', window.authManager.currentUser);
+        if (!text || !this.currentConversation) return;
 
         try {
             const message = {
@@ -197,12 +180,8 @@ class ChatManager {
                 type: 'text'
             };
 
-            console.log('Message to insert:', message);
-
-            // Clear input immediately
+            // Clear input and add to UI immediately
             input.value = '';
-
-            // Add message to UI immediately
             this.addMessageToUI({
                 ...message,
                 id: Date.now().toString(),
@@ -210,27 +189,19 @@ class ChatManager {
             });
 
             // Save to database
-            if (this.isSupabaseEnabled && this.supabase) {
-                console.log('Inserting to Supabase...');
-                const { data, error } = await this.supabase
+            if (window.isSupabaseEnabled && window.supabase) {
+                const { error } = await window.supabase
                     .from('messages')
-                    .insert(message)
-                    .select();
+                    .insert(message);
                 
-                if (error) {
-                    console.error('Supabase insert error:', error);
-                    throw error;
-                }
-                console.log('Message inserted successfully:', data);
-            } else {
-                console.log('Supabase not available, message only shown locally');
+                if (error) throw error;
             }
 
             this.scrollToBottom();
 
         } catch (error) {
             console.error('Error sending message:', error);
-            window.authManager.showNotification('Failed to send message: ' + error.message, 'error');
+            window.authManager.showNotification('Failed to send message', 'error');
         }
     }
 
