@@ -2576,24 +2576,34 @@
                         if (profileError) throw profileError;
                         user = profileData;
                         
-                        // Check if following
+                        // Check if following - handle the case where no follow relationship exists
                         const { data: followData, error: followError } = await supabase
                             .from('follows')
                             .select('id')
                             .eq('follower_id', this.currentUser.id)
                             .eq('following_id', userId)
-                            .single();
+                            .maybeSingle();
+                        
+                        // Only throw error if it's not a "no rows" error
+                        if (followError && followError.code !== 'PGRST116') {
+                            console.error('Follow check error:', followError);
+                        }
                         
                         isFollowing = followData !== null;
                         
                         // Track profile view (only if viewing someone else's profile)
                         if (userId !== this.currentUser.id) {
-                            await supabase
-                                .from('profile_views')
-                                .insert({
-                                    viewer_id: this.currentUser.id,
-                                    viewed_profile_id: userId
-                                });
+                            try {
+                                await supabase
+                                    .from('profile_views')
+                                    .insert({
+                                        viewer_id: this.currentUser.id,
+                                        viewed_profile_id: userId
+                                    });
+                            } catch (viewError) {
+                                // Ignore profile view errors
+                                console.log('Profile view tracking failed:', viewError);
+                            }
                         }
                     } else {
                         user = this.getUserById(userId);
@@ -2673,7 +2683,7 @@
                     });
                 } catch (error) {
                     console.error('Error loading user profile:', error);
-                    this.showNotification('Failed to load user profile', 'error');
+                    this.showNotification('Failed to load user profile: ' + (error.message || 'Unknown error'), 'error');
                 }
             }
 
