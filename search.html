@@ -350,7 +350,7 @@
             }
         }
 
-        function displayResults(users) {
+        async function displayResults(users) {
             const resultsContainer = document.getElementById('searchResults');
             
             if (!users || users.length === 0) {
@@ -364,7 +364,22 @@
                 return;
             }
 
-            resultsContainer.innerHTML = users.map(user => `
+            // Check follow status for each user
+            const usersWithFollowStatus = await Promise.all(users.map(async user => {
+                let isFollowing = false;
+                if (isSupabaseEnabled && currentUser) {
+                    const { data } = await supabase
+                        .from('follows')
+                        .select('id')
+                        .eq('follower_id', currentUser.id)
+                        .eq('following_id', user.id)
+                        .single();
+                    isFollowing = data !== null;
+                }
+                return { ...user, isFollowing };
+            }));
+
+            resultsContainer.innerHTML = usersWithFollowStatus.map(user => `
                 <div class="user-card">
                     <div class="user-avatar">
                         ${user.profile_photo ? 
@@ -386,8 +401,8 @@
                         <button class="btn btn-primary" onclick="startChat('${user.id}')">
                             <i class="fas fa-comment"></i> Message
                         </button>
-                        <button class="btn btn-secondary" id="followBtn_${user.id}" onclick="followUser('${user.id}')">
-                            <i class="fas fa-user-plus"></i> Follow
+                        <button class="btn" id="followBtn_${user.id}" style="background: ${user.isFollowing ? '#10b981' : '#6b7280'}; color: white;" onclick="${user.isFollowing ? 'unfollowUser' : 'followUser'}('${user.id}')">
+                            <i class="fas fa-${user.isFollowing ? 'check' : 'user-plus'}"></i> ${user.isFollowing ? 'Following' : 'Follow'}
                         </button>
                     </div>
                 </div>
