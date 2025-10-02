@@ -83,7 +83,8 @@ class SimpleInstantChat {
         const container = document.getElementById('chatMessages');
         if (!container) return;
         
-        container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading...</div>';
+        // Show typing indicator
+        container.innerHTML = '<div style="text-align: center; padding: 20px; color: #667781;"><i class="fas fa-circle" style="animation: pulse 1s infinite;"></i> <i class="fas fa-circle" style="animation: pulse 1s infinite 0.2s;"></i> <i class="fas fa-circle" style="animation: pulse 1s infinite 0.4s;"></i></div>';
 
         try {
             const { data } = await window.supabase
@@ -92,9 +93,12 @@ class SimpleInstantChat {
                 .eq('conversation_id', this.currentConversation.conversationId)
                 .order('created_at', { ascending: true });
 
-            this.displayMessages(data || []);
+            // Small delay to show loading animation
+            setTimeout(() => {
+                this.displayMessages(data || []);
+            }, 300);
         } catch (error) {
-            container.innerHTML = '<div style="text-align: center; padding: 20px; color: red;">Error loading messages</div>';
+            container.innerHTML = '<div style="text-align: center; padding: 20px; color: #e74c3c;">Error loading messages</div>';
         }
     }
 
@@ -103,12 +107,27 @@ class SimpleInstantChat {
         if (!container) return;
         
         if (messages.length === 0) {
-            container.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">Start chatting with ' + (this.currentConversation.user.full_name || this.currentConversation.user.username) + '</div>';
+            container.innerHTML = '<div style="text-align: center; padding: 40px; color: #667781;">Start chatting with ' + (this.currentConversation.user.full_name || this.currentConversation.user.username) + '</div>';
             return;
         }
 
-        container.innerHTML = messages.map(m => this.createMessageHTML(m)).join('');
-        container.scrollTop = container.scrollHeight;
+        // Clear container
+        container.innerHTML = '';
+        
+        // Add messages horizontally with animation
+        messages.forEach((msg, index) => {
+            setTimeout(() => {
+                const messageEl = document.createElement('div');
+                messageEl.innerHTML = this.createMessageHTML(msg);
+                container.appendChild(messageEl.firstChild);
+                
+                // Smooth scroll to bottom
+                container.scrollTo({
+                    top: container.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }, index * 50); // 50ms delay between messages for horizontal loading effect
+        });
     }
 
     createMessageHTML(msg) {
@@ -119,7 +138,7 @@ class SimpleInstantChat {
             (this.currentConversation.user.full_name || this.currentConversation.user.username);
         
         return '<div class="message ' + (isOwn ? 'own' : '') + '" data-message-id="' + msg.id + '">' +
-               '<div class="message-avatar">' + (name || 'U').charAt(0).toUpperCase() + '</div>' +
+               (isOwn ? '' : '<div class="message-avatar">' + (name || 'U').charAt(0).toUpperCase() + '</div>') +
                '<div class="message-content">' +
                '<div class="message-text">' + this.escapeHtml(msg.text) + '</div>' +
                '<div class="message-time">' + time + '</div>' +
@@ -149,7 +168,7 @@ class SimpleInstantChat {
             created_at: new Date().toISOString()
         };
 
-        // Add to UI instantly
+        // Add to UI instantly with slide animation
         this.addMessageToUI(tempMsg);
 
         // Send to database
@@ -191,9 +210,31 @@ class SimpleInstantChat {
         // Check for duplicates
         if (document.querySelector('[data-message-id="' + msg.id + '"]')) return;
 
-        // Add message
-        container.insertAdjacentHTML('beforeend', this.createMessageHTML(msg));
-        container.scrollTop = container.scrollHeight;
+        // Create message element
+        const messageEl = document.createElement('div');
+        messageEl.innerHTML = this.createMessageHTML(msg);
+        const messageNode = messageEl.firstChild;
+        
+        // Add slide-in animation
+        messageNode.style.transform = 'translateX(' + (msg.sender_id === window.authManager.currentUser.id ? '100%' : '-100%') + ')';
+        messageNode.style.opacity = '0';
+        
+        container.appendChild(messageNode);
+        
+        // Animate in
+        requestAnimationFrame(() => {
+            messageNode.style.transition = 'all 0.3s ease-out';
+            messageNode.style.transform = 'translateX(0)';
+            messageNode.style.opacity = '1';
+        });
+        
+        // Smooth scroll to bottom
+        setTimeout(() => {
+            container.scrollTo({
+                top: container.scrollHeight,
+                behavior: 'smooth'
+            });
+        }, 100);
     }
 
     startPolling() {
