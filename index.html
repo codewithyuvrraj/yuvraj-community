@@ -858,16 +858,16 @@
 
         /* WhatsApp-style Messages */
         .message {
-            display: flex;
-            margin-bottom: 12px;
+            display: block;
+            margin-bottom: 8px;
             animation: messageSlideIn 0.3s ease-out;
-            align-items: flex-end;
+            clear: both;
         }
 
         @keyframes messageSlideIn {
             from {
                 opacity: 0;
-                transform: translateY(20px);
+                transform: translateY(10px);
             }
             to {
                 opacity: 1;
@@ -876,11 +876,11 @@
         }
 
         .message.own {
-            justify-content: flex-end;
+            text-align: right;
         }
 
         .message:not(.own) {
-            justify-content: flex-start;
+            text-align: left;
         }
 
         .message-avatar {
@@ -888,15 +888,15 @@
             height: 28px;
             border-radius: 50%;
             background: #128c7e;
-            display: flex;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
             color: white;
             font-weight: 600;
             margin-right: 8px;
-            flex-shrink: 0;
+            margin-bottom: 4px;
+            vertical-align: bottom;
             font-size: 12px;
-            order: 1;
         }
 
         .message.own .message-avatar {
@@ -904,6 +904,7 @@
         }
 
         .message-content {
+            display: inline-block;
             max-width: 65%;
             background: white;
             padding: 6px 7px 8px 9px;
@@ -911,7 +912,7 @@
             box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
             position: relative;
             word-wrap: break-word;
-            order: 2;
+            text-align: left;
         }
 
         .message.own .message-content {
@@ -982,6 +983,22 @@
         /* Smooth scrolling for chat container */
         .chat-messages {
             scroll-behavior: smooth;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Message container spacing */
+        .message + .message {
+            margin-top: 2px;
+        }
+
+        /* Consecutive messages from same sender */
+        .message.own + .message.own {
+            margin-top: 2px;
+        }
+
+        .message:not(.own) + .message:not(.own) {
+            margin-top: 2px;
         }
 
         .file-attachment {
@@ -1596,7 +1613,7 @@
                 
                 <!-- Chat Messages Container -->
                 <div class="chat-messages" id="chatMessages" style="display: none; flex: 1; padding: 16px; overflow-y: auto; scroll-behavior: smooth; background: #e5ddd5; background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><defs><pattern id="chat-bg" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="50" cy="50" r="1" fill="%23ffffff" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23chat-bg)"/></svg>');">
-                    <!-- Messages will be displayed here with horizontal loading -->
+                    <!-- Messages will be displayed here vertically like WhatsApp -->
                 </div>
                 
                 <!-- Chat Input -->
@@ -2010,6 +2027,11 @@
                 // Setup menu toggle for settings
                 document.getElementById('menuToggle').addEventListener('click', () => {
                     this.showSettings();
+                });
+                
+                // Setup back button to go back to home feed
+                document.getElementById('backBtn').addEventListener('click', () => {
+                    this.goBackToHomeFeed();
                 });
                 
                 // Setup search button
@@ -2892,7 +2914,7 @@
                             <div style="background: #f8fafc; padding: 20px; border-radius: 12px;">
                                 <h4 style="margin-bottom: 12px;">Growth Insights</h4>
                                 <p style="color: #6b7280; margin-bottom: 16px;">Your professional network is just getting started. Connect with more professionals to unlock detailed analytics.</p>
-                                <button class="btn btn-primary" onclick="window.location.href='search.html'; this.closest('.overlay').remove();">
+                                <button class="btn btn-primary" onclick="window.authManager.showSearchModal(); this.closest('.overlay').remove();">
                                     <i class="fas fa-search"></i> Find Professionals
                                 </button>
                             </div>
@@ -3494,12 +3516,14 @@
                 
                 try {
                     const conversationId = this.getConversationId(this.currentUser.id, userId);
+                    const lastReadTime = this.getLastReadTime(conversationId);
+                    
                     const { data, error } = await supabase
                         .from('messages')
                         .select('id')
                         .eq('conversation_id', conversationId)
                         .eq('sender_id', userId)
-                        .gt('created_at', this.getLastReadTime(conversationId));
+                        .gt('created_at', lastReadTime);
                     
                     return data ? data.length : 0;
                 } catch (error) {
@@ -3677,6 +3701,51 @@
             getLastReadTime(conversationId) {
                 const lastRead = localStorage.getItem(`last_read_${conversationId}`);
                 return lastRead || '1970-01-01T00:00:00.000Z';
+            }
+            
+            markConversationAsRead(conversationId) {
+                if (!conversationId) return;
+                
+                const now = new Date().toISOString();
+                localStorage.setItem(`last_read_${conversationId}`, now);
+                
+                // Refresh home feed to update unread counts after a short delay
+                setTimeout(() => {
+                    this.loadHomeFeed();
+                }, 300);
+            }
+            
+            goBackToHomeFeed() {
+                // Mark current conversation as read before going back
+                if (window.chatManager && window.chatManager.currentConversation) {
+                    const conversationId = window.chatManager.currentConversation.conversationId;
+                    this.markConversationAsRead(conversationId);
+                    
+                    // Clean up chat manager
+                    window.chatManager.cleanup();
+                }
+                
+                // Show home feed and hide chat
+                const homeFeed = document.getElementById('homeFeed');
+                const businessTools = document.getElementById('businessTools');
+                const chatMessages = document.getElementById('chatMessages');
+                const chatInputContainer = document.getElementById('chatInputContainer');
+                const backBtn = document.getElementById('backBtn');
+                const chatTitle = document.getElementById('chatTitle');
+                const chatStatus = document.getElementById('chatStatus');
+                
+                if (homeFeed) homeFeed.style.display = 'block';
+                if (businessTools) businessTools.style.display = 'none';
+                if (chatMessages) chatMessages.style.display = 'none';
+                if (chatInputContainer) chatInputContainer.style.display = 'none';
+                if (backBtn) backBtn.style.display = 'none';
+                
+                // Reset header
+                if (chatTitle) chatTitle.textContent = 'BusinessConnect';
+                if (chatStatus) chatStatus.innerHTML = '';
+                
+                // Refresh home feed to show updated unread counts
+                this.loadHomeFeed();
             }
             
             setupPresenceTracking() {

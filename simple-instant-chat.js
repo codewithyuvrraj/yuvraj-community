@@ -48,6 +48,10 @@ class SimpleInstantChat {
             this.showChat();
             this.updateHeader(user);
             await this.loadMessages();
+            
+            // Mark conversation as read when opening
+            this.markConversationAsRead();
+            
             this.startPolling();
         } catch (error) {
             console.error('Start conversation error:', error);
@@ -59,15 +63,20 @@ class SimpleInstantChat {
         const businessTools = document.getElementById('businessTools');
         const chatMessages = document.getElementById('chatMessages');
         const chatInputContainer = document.getElementById('chatInputContainer');
+        const backBtn = document.getElementById('backBtn');
         
         if (homeFeed) homeFeed.style.display = 'none';
         if (businessTools) businessTools.style.display = 'none';
         if (chatMessages) chatMessages.style.display = 'flex';
         if (chatInputContainer) chatInputContainer.style.display = 'block';
+        if (backBtn) backBtn.style.display = 'block';
         
         setTimeout(() => {
             const messageInput = document.getElementById('messageInput');
             if (messageInput) messageInput.focus();
+            
+            // Mark conversation as read when chat is shown
+            this.markConversationAsRead();
         }, 100);
     }
 
@@ -114,19 +123,26 @@ class SimpleInstantChat {
         // Clear container
         container.innerHTML = '';
         
-        // Add messages horizontally with animation
+        // Add messages vertically with staggered animation
         messages.forEach((msg, index) => {
             setTimeout(() => {
                 const messageEl = document.createElement('div');
                 messageEl.innerHTML = this.createMessageHTML(msg);
-                container.appendChild(messageEl.firstChild);
+                const messageNode = messageEl.firstChild;
                 
-                // Smooth scroll to bottom
-                container.scrollTo({
-                    top: container.scrollHeight,
-                    behavior: 'smooth'
-                });
-            }, index * 50); // 50ms delay between messages for horizontal loading effect
+                // Add to container
+                container.appendChild(messageNode);
+                
+                // Smooth scroll to bottom after last message
+                if (index === messages.length - 1) {
+                    setTimeout(() => {
+                        container.scrollTo({
+                            top: container.scrollHeight,
+                            behavior: 'smooth'
+                        });
+                    }, 100);
+                }
+            }, index * 30); // 30ms delay between messages for vertical loading effect
         });
     }
 
@@ -138,15 +154,18 @@ class SimpleInstantChat {
             (this.currentConversation.user.full_name || this.currentConversation.user.username);
         
         return '<div class="message ' + (isOwn ? 'own' : '') + '" data-message-id="' + msg.id + '">' +
-               (isOwn ? '' : '<div class="message-avatar">' + (name || 'U').charAt(0).toUpperCase() + '</div>') +
+               (isOwn ? '' : '<div class="message-avatar">' + this.escapeHtml((name || 'U').charAt(0).toUpperCase()) + '</div>') +
                '<div class="message-content">' +
-               '<div class="message-text">' + this.escapeHtml(msg.text) + '</div>' +
+               '<div class="message-text">' + this.escapeHtml(msg.text || '') + '</div>' +
                '<div class="message-time">' + time + '</div>' +
                '</div></div>';
     }
 
     escapeHtml(text) {
-        return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     async sendInstant() {
@@ -187,6 +206,9 @@ class SimpleInstantChat {
                 // Update temp message with real ID
                 const element = document.querySelector('[data-message-id="' + tempMsg.id + '"]');
                 if (element) element.setAttribute('data-message-id', data.id);
+                
+                // Mark conversation as read after sending (user is actively chatting)
+                this.markConversationAsRead();
             }
         } catch (error) {
             console.error('Send error:', error);
@@ -215,16 +237,16 @@ class SimpleInstantChat {
         messageEl.innerHTML = this.createMessageHTML(msg);
         const messageNode = messageEl.firstChild;
         
-        // Add slide-in animation
-        messageNode.style.transform = 'translateX(' + (msg.sender_id === window.authManager.currentUser.id ? '100%' : '-100%') + ')';
+        // Add fade-in animation
         messageNode.style.opacity = '0';
+        messageNode.style.transform = 'translateY(10px)';
         
         container.appendChild(messageNode);
         
         // Animate in
         requestAnimationFrame(() => {
             messageNode.style.transition = 'all 0.3s ease-out';
-            messageNode.style.transform = 'translateX(0)';
+            messageNode.style.transform = 'translateY(0)';
             messageNode.style.opacity = '1';
         });
         
@@ -259,6 +281,8 @@ class SimpleInstantChat {
                             // Only add if it's not from current user (avoid duplicates)
                             if (msg.sender_id !== window.authManager.currentUser.id) {
                                 this.addMessageToUI(msg);
+                                // Mark as read since user is actively viewing the conversation
+                                this.markConversationAsRead();
                             }
                         }
                     });
@@ -276,9 +300,35 @@ class SimpleInstantChat {
         }
     }
 
+    markConversationAsRead() {
+        if (!this.currentConversation) return;
+        
+        // Update last read timestamp for this conversation
+        const conversationId = this.currentConversation.conversationId;
+        
+        // Use AuthManager's method if available
+        if (window.authManager && window.authManager.markConversationAsRead) {
+            window.authManager.markConversationAsRead(conversationId);
+        } else {
+            // Fallback to local storage
+            const now = new Date().toISOString();
+            localStorage.setItem(`last_read_${conversationId}`, now);
+        }
+    }
+
     cleanup() {
         this.stopPolling();
+        
+        // Mark conversation as read before cleanup
+        if (this.currentConversation) {
+            this.markConversationAsRead();
+        }
+        
         this.currentConversation = null;
+        
+        // Hide back button
+        const backBtn = document.getElementById('backBtn');
+        if (backBtn) backBtn.style.display = 'none';
     }
 }
 
