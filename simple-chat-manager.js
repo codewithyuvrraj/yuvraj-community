@@ -155,14 +155,32 @@ class SimpleChatManager {
                 sender_name: window.authManager.currentUser.full_name
             });
 
-            // Send using SQL function
-            const { data: messageId, error } = await window.supabase
-                .rpc('send_message', {
-                    conv_id: this.currentConversation.conversationId,
-                    message_text: text
-                });
-            
-            if (error) throw error;
+            // Try SQL function first, fallback to direct insert
+            let messageId;
+            try {
+                const { data, error } = await window.supabase
+                    .rpc('send_message', {
+                        conv_id: this.currentConversation.conversationId,
+                        message_text: text
+                    });
+                
+                if (error) throw error;
+                messageId = data;
+            } catch (funcError) {
+                console.log('SQL function failed, trying direct insert:', funcError);
+                
+                const { data, error } = await window.supabase
+                    .from('messages')
+                    .insert({
+                        conversation_id: this.currentConversation.conversationId,
+                        sender_id: window.authManager.currentUser.id,
+                        text: text
+                    })
+                    .select();
+                
+                if (error) throw error;
+                messageId = data[0]?.id;
+            }
 
             console.log('Message sent with ID:', messageId);
             this.scrollToBottom();
