@@ -18,8 +18,7 @@
             try {
                 const { data, error } = await supabase
                     .from('profiles')
-                    .select('id, username, full_name, email, created_at')
-                    .order('created_at', { ascending: false });
+                    .select('id, username, full_name, email');
                 
                 if (error) throw error;
                 

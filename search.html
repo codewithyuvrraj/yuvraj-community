@@ -325,11 +325,13 @@
                     console.log('Searching for:', query);
                     const { data, error } = await supabase
                         .from('profiles')
-                        .select('id, username, full_name, email, profile_photo, bio, job_title, company, industry, created_at')
+                        .select('id, username, full_name, email, profile_photo, bio, job_title, company, industry')
                         .or(`username.ilike.%${query}%,full_name.ilike.%${query}%,email.ilike.%${query}%`)
                         .neq('id', currentUser?.id || '00000000-0000-0000-0000-000000000000')
                         .not('username', 'is', null)
                         .not('full_name', 'is', null)
+                        .neq('username', '')
+                        .neq('full_name', '')
                         .limit(50);
                     
                     if (error) {
@@ -421,11 +423,12 @@
                     console.log('Loading all users...');
                     const { data, error } = await supabase
                         .from('profiles')
-                        .select('id, username, full_name, email, profile_photo, bio, job_title, company, industry, created_at')
+                        .select('id, username, full_name, email, profile_photo, bio, job_title, company, industry')
                         .neq('id', currentUser?.id || '00000000-0000-0000-0000-000000000000')
                         .not('username', 'is', null)
                         .not('full_name', 'is', null)
-                        .order('created_at', { ascending: false })
+                        .neq('username', '')
+                        .neq('full_name', '')
                         .limit(100);
                     
                     if (error) {
