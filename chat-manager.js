@@ -59,7 +59,7 @@ class ChatManager {
 
             // Get user info
             let otherUser;
-            if (window.isSupabaseEnabled && window.supabase) {
+            if (window.supabase && window.isSupabaseEnabled !== false) {
                 const { data, error } = await window.supabase
                     .from('profiles')
                     .select('*')
@@ -110,7 +110,7 @@ class ChatManager {
             messagesContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #6b7280;">Loading messages...</div>';
 
             let messages = [];
-            if (window.isSupabaseEnabled && window.supabase) {
+            if (window.supabase && window.isSupabaseEnabled !== false) {
                 const { data, error } = await window.supabase
                     .from('messages')
                     .select('*')
@@ -192,7 +192,7 @@ class ChatManager {
             });
 
             // Save to database
-            if (window.isSupabaseEnabled && window.supabase) {
+            if (window.supabase && window.isSupabaseEnabled !== false) {
                 const { data, error } = await window.supabase
                     .from('messages')
                     .insert(message)
@@ -234,7 +234,7 @@ class ChatManager {
     }
 
     async setupRealtimeListeners() {
-        if (!window.isSupabaseEnabled || !window.supabase) return;
+        if (!window.supabase || window.isSupabaseEnabled === false) return;
 
         this.realtimeChannel = window.supabase
             .channel('messages')

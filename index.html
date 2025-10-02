@@ -1632,6 +1632,8 @@
             // Make globally accessible
             window.supabase = supabase;
             window.isSupabaseEnabled = isSupabaseEnabled;
+            window.SUPABASE_URL = SUPABASE_URL;
+            window.SUPABASE_ANON_KEY = SUPABASE_ANON_KEY;
             console.log('Supabase initialized successfully');
         } catch (error) {
             console.log('Supabase initialization error:', error);
