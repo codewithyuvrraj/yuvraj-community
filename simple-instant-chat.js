@@ -35,13 +35,7 @@ class SimpleInstantChat {
         try {
             const { data: user } = await window.supabase
                 .from('profiles')
-                .select(`
-                    *,
-                    user_status(
-                        is_online,
-                        last_seen
-                    )
-                `)
+                .select('*')
                 .eq('id', userId)
                 .single();
 
@@ -97,8 +91,8 @@ class SimpleInstantChat {
         
         if (chatTitle) chatTitle.textContent = user.full_name || user.username;
         if (chatStatus && window.authManager) {
-            const statusColor = window.authManager.getUserStatusColor(user.user_status?.[0]);
-            const statusText = window.authManager.getUserStatusText(user.user_status?.[0]);
+            const statusColor = window.authManager.getUserStatusColor();
+            const statusText = window.authManager.getUserStatusText();
             chatStatus.innerHTML = `<i class="fas fa-circle" style="color: ${statusColor}; font-size: 8px; margin-right: 4px;"></i>${statusText}`;
         }
     }
@@ -184,12 +178,12 @@ class SimpleInstantChat {
             `<img src="${profilePhoto}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">` :
             this.escapeHtml((name || 'U').charAt(0).toUpperCase());
         
-        return '<div class="message ' + (isOwn ? 'own' : '') + '" data-message-id="' + msg.id + '">' +
-               (isOwn ? '' : '<div class="message-avatar">' + avatarContent + '</div>') +
-               '<div class="message-content">' +
-               '<div class="message-text">' + this.escapeHtml(msg.text || '') + '</div>' +
-               '<div class="message-time">' + time + '</div>' +
-               '</div></div>';
+        return `<div class="message ${isOwn ? 'own' : ''}" data-message-id="${msg.id}">
+               ${isOwn ? '' : `<div class="message-avatar">${avatarContent}</div>`}
+               <div class="message-content">
+               <div class="message-text">${this.escapeHtml(msg.text || '')}</div>
+               <div class="message-time">${time}</div>
+               </div></div>`;
     }
 
     escapeHtml(text) {
