@@ -32,6 +32,16 @@ class SimpleInstantChat {
     async startConversation(userId) {
         if (!window.authManager || !window.authManager.currentUser) return;
 
+        const conversationId = [window.authManager.currentUser.id, userId].sort().join('_');
+        
+        // Check if chat is locked
+        if (window.chatLockManager && window.chatLockManager.isChatLocked(conversationId)) {
+            if (!window.chatLockManager.canAccessChat(conversationId)) {
+                window.chatLockManager.showUnlockModal(conversationId);
+                return;
+            }
+        }
+
         try {
             const { data: user } = await window.supabase
                 .from('profiles')
@@ -42,7 +52,7 @@ class SimpleInstantChat {
             this.currentConversation = {
                 userId,
                 user,
-                conversationId: [window.authManager.currentUser.id, userId].sort().join('_')
+                conversationId
             };
 
             this.showChat();
@@ -134,6 +144,11 @@ class SimpleInstantChat {
         // Show delete chat button in settings if available
         if (window.authManager && window.authManager.showDeleteChatInSettings) {
             window.authManager.showDeleteChatInSettings();
+        }
+        
+        // Show chat lock button in settings if available
+        if (window.chatLockManager) {
+            window.chatLockManager.showChatLockInSettings();
         }
     }
 
