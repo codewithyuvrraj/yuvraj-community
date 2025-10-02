@@ -401,7 +401,7 @@
                         <button class="btn btn-primary" onclick="startChat('${user.id}')">
                             <i class="fas fa-comment"></i> Message
                         </button>
-                        <button class="btn" id="followBtn_${user.id}" style="background: ${user.isFollowing ? '#10b981' : '#6b7280'}; color: white;" onclick="${user.isFollowing ? 'unfollowUser' : 'followUser'}('${user.id}')">
+                        <button class="btn" id="followBtn_${user.id}" style="background: ${user.isFollowing ? '#10b981' : '#6b7280'}; color: white;" onclick="${user.isFollowing ? `unfollowUser('${user.id}')` : `followUser('${user.id}')`}">
                             <i class="fas fa-${user.isFollowing ? 'check' : 'user-plus'}"></i> ${user.isFollowing ? 'Following' : 'Follow'}
                         </button>
                     </div>
