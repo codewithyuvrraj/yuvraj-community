@@ -1947,6 +1947,14 @@
                 // Track online status
                 this.trackOnlineStatus();
                 
+                // Update notification badge
+                this.updateNotificationBadge();
+                
+                // Check for notifications periodically
+                setInterval(() => {
+                    this.updateNotificationBadge();
+                }, 30000);
+                
                 // Listen for storage changes to refresh feed when follows change
                 window.addEventListener('storage', (e) => {
                     if (e.key === 'feed_refresh') {
@@ -2874,10 +2882,21 @@
             }
             
             async showNotifications() {
+                let notifications = [];
                 let joinRequests = [];
                 
                 if (isSupabaseEnabled) {
                     try {
+                        // Get follow notifications
+                        const { data: notificationData } = await supabase
+                            .from('notifications')
+                            .select('*')
+                            .eq('user_id', this.currentUser.id)
+                            .order('created_at', { ascending: false })
+                            .limit(20);
+                        
+                        notifications = notificationData || [];
+                        
                         // Get pending channel join requests for user's channels
                         const { data: requests } = await supabase
                             .from('channel_join_requests')
@@ -2898,14 +2917,46 @@
                 const modal = document.createElement('div');
                 modal.className = 'overlay';
                 modal.innerHTML = `
-                    <div class="settings-modal" style="max-width: 400px;">
+                    <div class="settings-modal" style="max-width: 450px; max-height: 90vh;">
                         <div class="settings-header" style="background: #6366f1; color: white;">
                             <h3><i class="fas fa-bell"></i> Notifications</h3>
-                            <button class="close-btn" onclick="this.closest('.overlay').remove()" style="color: white;">
-                                <i class="fas fa-times"></i>
-                            </button>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                ${notifications.filter(n => !n.read).length > 0 ? `
+                                    <button onclick="window.authManager.markAllNotificationsRead()" style="background: rgba(255,255,255,0.2); color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer;">
+                                        Mark all read
+                                    </button>
+                                ` : ''}
+                                <button class="close-btn" onclick="this.closest('.overlay').remove()" style="color: white;">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
                         </div>
-                        <div class="settings-content">
+                        <div class="settings-content" style="max-height: 70vh; overflow-y: auto;">
+                            ${notifications.length > 0 ? `
+                                <div style="margin-bottom: 20px;">
+                                    <h4 style="margin-bottom: 12px; color: #374151; display: flex; align-items: center; gap: 8px;"><i class="fas fa-heart" style="color: #ef4444;"></i> Follow Notifications</h4>
+                                    ${notifications.map(notification => `
+                                        <div onclick="window.authManager.handleNotificationClick('${notification.id}', '${notification.data.follower_id}')" style="background: ${notification.read ? '#f8fafc' : '#eff6ff'}; padding: 16px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid ${notification.read ? '#e5e7eb' : '#3b82f6'}; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='${notification.read ? '#f1f5f9' : '#dbeafe'}'" onmouseout="this.style.background='${notification.read ? '#f8fafc' : '#eff6ff'}'">
+                                            <div style="display: flex; align-items: center; gap: 12px;">
+                                                <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #1e40af, #06b6d4); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 16px; overflow: hidden; flex-shrink: 0;">
+                                                    ${notification.data.follower_photo ? 
+                                                        `<img src="${notification.data.follower_photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">` :
+                                                        (notification.data.follower_name || notification.data.follower_username).charAt(0).toUpperCase()
+                                                    }
+                                                </div>
+                                                <div style="flex: 1; min-width: 0;">
+                                                    <div style="font-weight: ${notification.read ? '500' : '600'}; color: #374151; margin-bottom: 2px; font-size: 14px;">
+                                                        <span onclick="event.stopPropagation(); window.authManager.showUserProfile('${notification.data.follower_id}')" style="color: #1e40af; cursor: pointer; text-decoration: none; font-weight: 600;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${notification.data.follower_name}</span> started following you
+                                                    </div>
+                                                    <div style="font-size: 12px; color: #6b7280;">${this.formatNotificationTime(notification.created_at)}</div>
+                                                </div>
+                                                ${!notification.read ? `<div style="width: 8px; height: 8px; background: #3b82f6; border-radius: 50%; flex-shrink: 0;"></div>` : ''}
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : ''}
+                            
                             ${joinRequests.length > 0 ? `
                                 <div style="margin-bottom: 20px;">
                                     <h4 style="margin-bottom: 12px; color: #374151;">Channel Join Requests</h4>
@@ -2928,17 +2979,22 @@
                                         </div>
                                     `).join('')}
                                 </div>
-                            ` : `
+                            ` : ''}
+                            
+                            ${notifications.length === 0 && joinRequests.length === 0 ? `
                                 <div style="text-align: center; padding: 40px 20px;">
                                     <i class="fas fa-bell-slash" style="font-size: 48px; color: #d1d5db; margin-bottom: 16px;"></i>
                                     <h3>No New Notifications</h3>
-                                    <p style="color: #6b7280;">Channel join requests will appear here.</p>
+                                    <p style="color: #6b7280;">Follow notifications and requests will appear here.</p>
                                 </div>
-                            `}
+                            ` : ''}
                         </div>
                     </div>
                 `;
                 document.body.appendChild(modal);
+                
+                // Update notification badge
+                this.updateNotificationBadge();
             }
             
 
@@ -3913,6 +3969,8 @@
                             }
                             return;
                         }
+                        
+                        // Notification will be automatically created by the database trigger
                     }
                     
                     this.showNotification('User followed successfully!', 'success');
@@ -3985,6 +4043,87 @@
                 const lastSeenDate = new Date(lastSeen);
                 const diffMinutes = (now - lastSeenDate) / (1000 * 60);
                 return diffMinutes < 2; // Online if seen within 2 minutes
+            }
+            
+            async updateNotificationBadge() {
+                if (!isSupabaseEnabled || !this.currentUser) return;
+                
+                try {
+                    const { data: count } = await supabase
+                        .rpc('get_unread_notification_count', { user_id: this.currentUser.id });
+                    
+                    const badge = document.getElementById('notificationBadge');
+                    if (badge) {
+                        if (count > 0) {
+                            badge.textContent = count > 99 ? '99+' : count;
+                            badge.style.display = 'flex';
+                        } else {
+                            badge.style.display = 'none';
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error updating notification badge:', error);
+                }
+            }
+            
+            async handleNotificationClick(notificationId, followerId) {
+                // Mark notification as read
+                if (isSupabaseEnabled) {
+                    try {
+                        await supabase
+                            .rpc('mark_notification_read', { 
+                                notification_id: notificationId, 
+                                user_id: this.currentUser.id 
+                            });
+                    } catch (error) {
+                        console.error('Error marking notification as read:', error);
+                    }
+                }
+                
+                // Close notifications modal
+                document.querySelector('.overlay').remove();
+                
+                // Show follower's profile
+                this.showUserProfile(followerId);
+                
+                // Update badge
+                this.updateNotificationBadge();
+            }
+            
+            async markAllNotificationsRead() {
+                if (!isSupabaseEnabled || !this.currentUser) return;
+                
+                try {
+                    await supabase
+                        .rpc('mark_all_notifications_read', { user_id: this.currentUser.id });
+                    
+                    this.showNotification('All notifications marked as read', 'success');
+                    
+                    // Refresh notifications modal
+                    document.querySelector('.overlay').remove();
+                    this.showNotifications();
+                    
+                    // Update badge
+                    this.updateNotificationBadge();
+                } catch (error) {
+                    console.error('Error marking all notifications as read:', error);
+                    this.showNotification('Failed to mark notifications as read', 'error');
+                }
+            }
+            
+            formatNotificationTime(timestamp) {
+                const now = new Date();
+                const time = new Date(timestamp);
+                const diffMs = now - time;
+                const diffMins = Math.floor(diffMs / 60000);
+                const diffHours = Math.floor(diffMs / 3600000);
+                const diffDays = Math.floor(diffMs / 86400000);
+                
+                if (diffMins < 1) return 'Just now';
+                if (diffMins < 60) return `${diffMins}m ago`;
+                if (diffHours < 24) return `${diffHours}h ago`;
+                if (diffDays < 7) return `${diffDays}d ago`;
+                return time.toLocaleDateString();
             }
 
             showCreateGroup() {
