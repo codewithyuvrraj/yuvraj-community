@@ -281,8 +281,10 @@
         try {
             supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
             isSupabaseEnabled = true;
+            console.log('✅ Supabase initialized successfully');
         } catch (error) {
-            console.log('Supabase initialization error:', error);
+            console.log('❌ Supabase initialization error:', error);
+            isSupabaseEnabled = false;
         }
 
         // Load current user
@@ -593,7 +595,34 @@
         document.getElementById('searchInput').focus();
         
         // Load all users when page loads
-        window.addEventListener('load', showAllUsers);
+        window.addEventListener('load', () => {
+            console.log('🔄 Page loaded, testing connection...');
+            testConnection();
+        });
+        
+        async function testConnection() {
+            try {
+                if (isSupabaseEnabled) {
+                    console.log('🔍 Testing Supabase connection...');
+                    const { data, error } = await supabase.from('profiles').select('count').limit(1);
+                    if (error) {
+                        console.error('❌ Connection test failed:', error);
+                        isSupabaseEnabled = false;
+                        showDemoUsers();
+                    } else {
+                        console.log('✅ Connection successful, loading users...');
+                        showAllUsers();
+                    }
+                } else {
+                    console.log('📱 Using demo mode');
+                    showDemoUsers();
+                }
+            } catch (error) {
+                console.error('❌ Connection error:', error);
+                isSupabaseEnabled = false;
+                showDemoUsers();
+            }
+        }
     </script>
 </body>
 </html>
