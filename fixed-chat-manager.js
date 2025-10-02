@@ -11,13 +11,13 @@ class FixedChatManager {
     async initialize() {
         if (this.isInitialized) return;
         
-        console.log('🚀 Initializing Fixed Chat Manager...');
+        console.log('Initializing Fixed Chat Manager...');
         this.setupEventListeners();
         await this.setupRealtime();
         this.setupConnectionMonitoring();
         this.isInitialized = true;
         
-        console.log('✅ Fixed Chat Manager initialized with instant messaging');
+        console.log('Fixed Chat Manager initialized with instant messaging');
     }
 
     setupEventListeners() {
@@ -39,13 +39,15 @@ class FixedChatManager {
     }
 
     async startConversation(userId) {
-        if (!window.authManager?.currentUser) {
-            window.authManager?.showNotification('Please login first', 'error');
+        if (!window.authManager || !window.authManager.currentUser) {
+            if (window.authManager && window.authManager.showNotification) {
+                window.authManager.showNotification('Please login first', 'error');
+            }
             return;
         }
 
         try {
-            console.log('🔄 Starting conversation with user:', userId);
+            console.log('Starting conversation with user:', userId);
             
             // Get user info
             const { data: otherUser, error } = await window.supabase
@@ -62,7 +64,7 @@ class FixedChatManager {
                 conversationId: this.getConversationId(window.authManager.currentUser.id, userId)
             };
 
-            console.log('💬 Conversation ID:', this.currentConversation.conversationId);
+            console.log('Conversation ID:', this.currentConversation.conversationId);
             
             this.showChatInterface();
             this.updateChatHeader(otherUser);
@@ -72,8 +74,10 @@ class FixedChatManager {
             this.markConversationAsRead();
 
         } catch (error) {
-            console.error('❌ Error starting conversation:', error);
-            window.authManager?.showNotification('Failed to start conversation: ' + error.message, 'error');
+            console.error('Error starting conversation:', error);
+            if (window.authManager && window.authManager.showNotification) {
+                window.authManager.showNotification('Failed to start conversation: ' + error.message, 'error');
+            }
         }
     }
 
@@ -113,7 +117,7 @@ class FixedChatManager {
         if (!this.currentConversation) return;
 
         try {
-            console.log('📥 Loading messages for conversation:', this.currentConversation.conversationId);
+            console.log('Loading messages for conversation:', this.currentConversation.conversationId);
             
             const messagesContainer = document.getElementById('chatMessages');
             if (messagesContainer) {
@@ -144,12 +148,12 @@ class FixedChatManager {
                 messages = data || [];
             }
 
-            console.log(`📨 Loaded ${messages.length} messages`);
+            console.log('Loaded ' + messages.length + ' messages');
             this.displayMessages(messages);
             this.scrollToBottom();
 
         } catch (error) {
-            console.error('❌ Error loading messages:', error);
+            console.error('Error loading messages:', error);
             const messagesContainer = document.getElementById('chatMessages');
             if (messagesContainer) {
                 messagesContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #ef4444;"><i class="fas fa-exclamation-triangle"></i><p>Failed to load messages</p><button onclick="window.chatManager.loadMessages()" style="background: #1e40af; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; margin-top: 8px;"><i class="fas fa-refresh"></i> Retry</button></div>';
@@ -162,13 +166,7 @@ class FixedChatManager {
         if (!container) return;
         
         if (messages.length === 0) {
-            container.innerHTML = `
-                <div style="text-align: center; padding: 40px; color: #6b7280;">
-                    <i class="fas fa-comments" style="font-size: 48px; margin-bottom: 16px; color: #d1d5db;"></i>
-                    <h3>Start the conversation</h3>
-                    <p>Send a message to ${this.currentConversation.user.full_name || this.currentConversation.user.username}</p>
-                </div>
-            `;
+            container.innerHTML = '<div style="text-align: center; padding: 40px; color: #6b7280;"><i class="fas fa-comments" style="font-size: 48px; margin-bottom: 16px; color: #d1d5db;"></i><h3>Start the conversation</h3><p>Send a message to ' + (this.currentConversation.user.full_name || this.currentConversation.user.username) + '</p></div>';
             return;
         }
 
@@ -176,30 +174,27 @@ class FixedChatManager {
     }
 
     createMessageElement(message) {
-        const isOwn = message.sender_id === window.authManager?.currentUser?.id;
+        const isOwn = message.sender_id === (window.authManager && window.authManager.currentUser ? window.authManager.currentUser.id : null);
         const time = new Date(message.created_at).toLocaleTimeString([], { 
             hour: '2-digit', 
             minute: '2-digit' 
         });
         
         const senderName = message.sender_name || 
-                          (isOwn ? window.authManager?.currentUser?.full_name : this.currentConversation?.user?.username) || 
-                          'User';
+                          (isOwn && window.authManager && window.authManager.currentUser ? window.authManager.currentUser.full_name : 
+                           this.currentConversation && this.currentConversation.user ? this.currentConversation.user.username : 'User');
         
-        return `
-            <div class="message ${isOwn ? 'own' : ''}" data-message-id="${message.id}">
-                <div class="message-avatar">
-                    ${isOwn ? 
-                        (window.authManager?.currentUser?.full_name || window.authManager?.currentUser?.username || 'U').charAt(0).toUpperCase() :
-                        senderName.charAt(0).toUpperCase()
-                    }
-                </div>
-                <div class="message-content">
-                    <div class="message-text">${this.escapeHtml(message.text)}</div>
-                    <div class="message-time">${time}</div>
-                </div>
-            </div>
-        `;
+        const avatarText = isOwn ? 
+            (window.authManager && window.authManager.currentUser ? 
+             (window.authManager.currentUser.full_name || window.authManager.currentUser.username || 'U').charAt(0).toUpperCase() : 'U') :
+            (senderName || 'U').charAt(0).toUpperCase();
+        
+        return '<div class="message ' + (isOwn ? 'own' : '') + '" data-message-id="' + message.id + '">' +
+               '<div class="message-avatar">' + avatarText + '</div>' +
+               '<div class="message-content">' +
+               '<div class="message-text">' + this.escapeHtml(message.text) + '</div>' +
+               '<div class="message-time">' + time + '</div>' +
+               '</div></div>';
     }
 
     escapeHtml(text) {
@@ -210,12 +205,12 @@ class FixedChatManager {
 
     async sendMessage() {
         const input = document.getElementById('messageInput');
-        const text = input?.value?.trim();
+        const text = input && input.value ? input.value.trim() : '';
         
         if (!text || !this.currentConversation) return;
 
         try {
-            console.log('📤 Sending message:', text);
+            console.log('Sending message:', text);
             
             // Clear input immediately for better UX
             input.value = '';
@@ -246,7 +241,7 @@ class FixedChatManager {
                 
                 if (error) throw error;
                 messageId = data;
-                console.log('✅ Message sent via SQL function, ID:', messageId);
+                console.log('Message sent via SQL function, ID:', messageId);
             } catch (funcError) {
                 console.log('SQL function failed, trying direct insert:', funcError);
                 
@@ -263,20 +258,20 @@ class FixedChatManager {
                 
                 if (error) throw error;
                 messageId = data.id;
-                console.log('✅ Message sent via direct insert, ID:', messageId);
+                console.log('Message sent via direct insert, ID:', messageId);
             }
 
             // Update temp message with real ID
-            const tempElement = document.querySelector(`[data-message-id="${tempMessage.id}"]`);
+            const tempElement = document.querySelector('[data-message-id="' + tempMessage.id + '"]');
             if (tempElement) {
                 tempElement.setAttribute('data-message-id', messageId);
             }
 
         } catch (error) {
-            console.error('❌ Error sending message:', error);
+            console.error('Error sending message:', error);
             
             // Remove temp message on error
-            const tempElement = document.querySelector(`[data-message-id="${tempMessage.id}"]`);
+            const tempElement = document.querySelector('[data-message-id="' + tempMessage.id + '"]');
             if (tempElement) {
                 tempElement.remove();
             }
@@ -284,7 +279,9 @@ class FixedChatManager {
             // Restore input value
             if (input) input.value = text;
             
-            window.authManager?.showNotification('Failed to send message: ' + error.message, 'error');
+            if (window.authManager && window.authManager.showNotification) {
+                window.authManager.showNotification('Failed to send message: ' + error.message, 'error');
+            }
         }
     }
 
@@ -298,7 +295,7 @@ class FixedChatManager {
         }
         
         // Check if message already exists (avoid duplicates)
-        const existingMessage = container.querySelector(`[data-message-id="${message.id}"]`);
+        const existingMessage = container.querySelector('[data-message-id="' + message.id + '"]');
         if (existingMessage) return;
         
         container.insertAdjacentHTML('beforeend', this.createMessageElement(message));
@@ -317,12 +314,12 @@ class FixedChatManager {
 
     async setupRealtime() {
         if (!window.supabase) {
-            console.warn('⚠️ Supabase not available, realtime disabled');
+            console.warn('Supabase not available, realtime disabled');
             return;
         }
 
         try {
-            console.log('🔄 Setting up realtime messaging...');
+            console.log('Setting up realtime messaging...');
             
             this.realtimeChannel = window.supabase
                 .channel('instant-messages-v2')
@@ -331,7 +328,7 @@ class FixedChatManager {
                     schema: 'public',
                     table: 'messages'
                 }, (payload) => {
-                    console.log('📨 Real-time message received:', payload);
+                    console.log('Real-time message received:', payload);
                     this.handleRealtimeMessage(payload.new);
                 });
 
@@ -341,10 +338,10 @@ class FixedChatManager {
                 throw error;
             }
             
-            console.log('✅ Realtime messaging enabled');
+            console.log('Realtime messaging enabled');
             
         } catch (error) {
-            console.error('❌ Realtime setup failed:', error);
+            console.error('Realtime setup failed:', error);
             // Continue without realtime
         }
     }
@@ -357,9 +354,9 @@ class FixedChatManager {
         if (message.conversation_id !== this.currentConversation.conversationId) return;
         
         // Don't show our own messages (already added to UI)
-        if (message.sender_id === window.authManager?.currentUser?.id) return;
+        if (message.sender_id === (window.authManager && window.authManager.currentUser ? window.authManager.currentUser.id : null)) return;
         
-        console.log('📥 Adding incoming message to UI');
+        console.log('Adding incoming message to UI');
         
         // Add sender info and display
         this.addIncomingMessage(message);
@@ -374,8 +371,8 @@ class FixedChatManager {
                 .eq('id', message.sender_id)
                 .single();
             
-            message.sender_name = sender?.full_name || sender?.username || 'User';
-            message.sender_photo = sender?.profile_photo;
+            message.sender_name = (sender && sender.full_name) || (sender && sender.username) || 'User';
+            message.sender_photo = sender && sender.profile_photo;
             
             this.addMessageToUI(message);
             this.scrollToBottom();
@@ -394,19 +391,19 @@ class FixedChatManager {
         const conversationId = this.currentConversation.conversationId;
         const timestamp = new Date().toISOString();
         
-        localStorage.setItem(`last_read_${conversationId}`, timestamp);
+        localStorage.setItem('last_read_' + conversationId, timestamp);
     }
 
     setupConnectionMonitoring() {
         // Monitor online/offline status
         window.addEventListener('online', () => {
             this.isOnline = true;
-            console.log('🟢 Connection restored');
+            console.log('Connection restored');
         });
         
         window.addEventListener('offline', () => {
             this.isOnline = false;
-            console.log('🔴 Connection lost');
+            console.log('Connection lost');
         });
     }
 
@@ -417,24 +414,30 @@ class FixedChatManager {
         }
         
         this.currentConversation = null;
-        console.log('🧹 Chat manager cleaned up');
+        console.log('Chat manager cleaned up');
     }
 }
 
 // Replace the existing chat manager
 if (window.chatManager) {
-    window.chatManager.cleanup?.();
+    if (window.chatManager.cleanup) {
+        window.chatManager.cleanup();
+    }
 }
 
 window.chatManager = new FixedChatManager();
 
 // Auto-initialize when DOM is ready
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        setTimeout(() => window.chatManager.initialize(), 100);
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+            window.chatManager.initialize();
+        }, 100);
     });
 } else {
-    setTimeout(() => window.chatManager.initialize(), 100);
+    setTimeout(function() {
+        window.chatManager.initialize();
+    }, 100);
 }
 
-console.log('🔧 Fixed Chat Manager loaded');
+console.log('Fixed Chat Manager loaded');
