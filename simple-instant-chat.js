@@ -149,12 +149,22 @@ class SimpleInstantChat {
     createMessageHTML(msg) {
         const isOwn = msg.sender_id === window.authManager.currentUser.id;
         const time = new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
-        const name = isOwn ? 
-            (window.authManager.currentUser.full_name || window.authManager.currentUser.username) :
-            (this.currentConversation.user.full_name || this.currentConversation.user.username);
+        
+        // Get user data and profile photo
+        const userData = isOwn ? 
+            window.authManager.currentUser :
+            this.currentConversation.user;
+        
+        const name = userData.full_name || userData.username;
+        const profilePhoto = userData.profile_photo;
+        
+        // Create avatar HTML with profile photo or initials
+        const avatarContent = profilePhoto ? 
+            `<img src="${profilePhoto}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">` :
+            this.escapeHtml((name || 'U').charAt(0).toUpperCase());
         
         return '<div class="message ' + (isOwn ? 'own' : '') + '" data-message-id="' + msg.id + '">' +
-               (isOwn ? '' : '<div class="message-avatar">' + this.escapeHtml((name || 'U').charAt(0).toUpperCase()) + '</div>') +
+               (isOwn ? '' : '<div class="message-avatar">' + avatarContent + '</div>') +
                '<div class="message-content">' +
                '<div class="message-text">' + this.escapeHtml(msg.text || '') + '</div>' +
                '<div class="message-time">' + time + '</div>' +
