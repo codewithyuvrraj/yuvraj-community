@@ -33,4 +33,408 @@ class FixedChatManager {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     this.sendMessage();
-                }\n            });\n        }\n    }\n\n    async startConversation(userId) {\n        if (!window.authManager?.currentUser) {\n            window.authManager?.showNotification('Please login first', 'error');\n            return;\n        }\n\n        try {\n            console.log('🔄 Starting conversation with user:', userId);\n            \n            // Get user info\n            const { data: otherUser, error } = await window.supabase\n                .from('profiles')\n                .select('*')\n                .eq('id', userId)\n                .single();\n            \n            if (error) throw error;\n\n            this.currentConversation = {\n                userId: userId,\n                user: otherUser,\n                conversationId: this.getConversationId(window.authManager.currentUser.id, userId)\n            };\n\n            console.log('💬 Conversation ID:', this.currentConversation.conversationId);\n            \n            this.showChatInterface();\n            this.updateChatHeader(otherUser);\n            await this.loadMessages();\n            \n            // Mark conversation as read\n            this.markConversationAsRead();\n\n        } catch (error) {\n            console.error('❌ Error starting conversation:', error);\n            window.authManager?.showNotification('Failed to start conversation: ' + error.message, 'error');\n        }\n    }\n\n    showChatInterface() {\n        // Hide other sections\n        const homeFeed = document.getElementById('homeFeed');\n        const businessTools = document.getElementById('businessTools');\n        const chatMessages = document.getElementById('chatMessages');\n        const chatInputContainer = document.getElementById('chatInputContainer');\n        \n        if (homeFeed) homeFeed.style.display = 'none';\n        if (businessTools) businessTools.style.display = 'none';\n        if (chatMessages) chatMessages.style.display = 'flex';\n        if (chatInputContainer) chatInputContainer.style.display = 'block';\n        \n        // Focus message input\n        setTimeout(() => {\n            const messageInput = document.getElementById('messageInput');\n            if (messageInput) messageInput.focus();\n        }, 100);\n    }\n\n    updateChatHeader(user) {\n        const chatTitle = document.getElementById('chatTitle');\n        const chatStatus = document.getElementById('chatStatus');\n        \n        if (chatTitle) {\n            chatTitle.textContent = user.full_name || user.username;\n        }\n        \n        if (chatStatus) {\n            chatStatus.innerHTML = `<i class=\"fas fa-circle\" style=\"color: #10b981; font-size: 8px; margin-right: 4px;\"></i>Active now`;\n        }\n    }\n\n    async loadMessages() {\n        if (!this.currentConversation) return;\n\n        try {\n            console.log('📥 Loading messages for conversation:', this.currentConversation.conversationId);\n            \n            const messagesContainer = document.getElementById('chatMessages');\n            if (messagesContainer) {\n                messagesContainer.innerHTML = '<div style=\"text-align: center; padding: 20px; color: #6b7280;\"><i class=\"fas fa-spinner fa-spin\"></i> Loading messages...</div>';\n            }\n\n            // Use the SQL function for better performance\n            let messages = [];\n            try {\n                const { data, error } = await window.supabase\n                    .rpc('get_conversation_messages', {\n                        conv_id: this.currentConversation.conversationId\n                    });\n                \n                if (error) throw error;\n                messages = data || [];\n            } catch (funcError) {\n                console.log('SQL function failed, using direct query:', funcError);\n                \n                // Fallback to direct query\n                const { data, error } = await window.supabase\n                    .from('messages')\n                    .select(`\n                        *,\n                        profiles!messages_sender_id_fkey(\n                            full_name,\n                            username,\n                            profile_photo\n                        )\n                    `)\n                    .eq('conversation_id', this.currentConversation.conversationId)\n                    .order('created_at', { ascending: true });\n                \n                if (error) throw error;\n                messages = data || [];\n            }\n\n            console.log(`📨 Loaded ${messages.length} messages`);\n            this.displayMessages(messages);\n            this.scrollToBottom();\n\n        } catch (error) {\n            console.error('❌ Error loading messages:', error);\n            const messagesContainer = document.getElementById('chatMessages');\n            if (messagesContainer) {\n                messagesContainer.innerHTML = `\n                    <div style=\"text-align: center; padding: 20px; color: #ef4444;\">\n                        <i class=\"fas fa-exclamation-triangle\"></i>\n                        <p>Failed to load messages</p>\n                        <button onclick=\"window.chatManager.loadMessages()\" style=\"background: #1e40af; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; margin-top: 8px;\">\n                            <i class=\"fas fa-refresh\"></i> Retry\n                        </button>\n                    </div>\n                `;\n            }\n        }\n    }\n\n    displayMessages(messages) {\n        const container = document.getElementById('chatMessages');\n        if (!container) return;\n        \n        if (messages.length === 0) {\n            container.innerHTML = `\n                <div style=\"text-align: center; padding: 40px; color: #6b7280;\">\n                    <i class=\"fas fa-comments\" style=\"font-size: 48px; margin-bottom: 16px; color: #d1d5db;\"></i>\n                    <h3>Start the conversation</h3>\n                    <p>Send a message to ${this.currentConversation.user.full_name || this.currentConversation.user.username}</p>\n                </div>\n            `;\n            return;\n        }\n\n        container.innerHTML = messages.map(msg => this.createMessageElement(msg)).join('');\n    }\n\n    createMessageElement(message) {\n        const isOwn = message.sender_id === window.authManager?.currentUser?.id;\n        const time = new Date(message.created_at).toLocaleTimeString([], { \n            hour: '2-digit', \n            minute: '2-digit' \n        });\n        \n        const senderName = message.sender_name || \n                          message.profiles?.full_name || \n                          message.profiles?.username || \n                          (isOwn ? window.authManager?.currentUser?.full_name : this.currentConversation?.user?.username) || \n                          'User';\n        \n        return `\n            <div class=\"message ${isOwn ? 'own' : ''}\" data-message-id=\"${message.id}\">\n                <div class=\"message-avatar\">\n                    ${isOwn ? \n                        (window.authManager?.currentUser?.full_name || window.authManager?.currentUser?.username || 'U').charAt(0).toUpperCase() :\n                        senderName.charAt(0).toUpperCase()\n                    }\n                </div>\n                <div class=\"message-content\">\n                    <div class=\"message-text\">${this.escapeHtml(message.text)}</div>\n                    <div class=\"message-time\">${time}</div>\n                </div>\n            </div>\n        `;\n    }\n\n    escapeHtml(text) {\n        const div = document.createElement('div');\n        div.textContent = text;\n        return div.innerHTML;\n    }\n\n    async sendMessage() {\n        const input = document.getElementById('messageInput');\n        const text = input?.value?.trim();\n        \n        if (!text || !this.currentConversation) return;\n\n        try {\n            console.log('📤 Sending message:', text);\n            \n            // Clear input immediately for better UX\n            input.value = '';\n            \n            // Create temporary message for instant UI feedback\n            const tempMessage = {\n                id: 'temp-' + Date.now(),\n                conversation_id: this.currentConversation.conversationId,\n                sender_id: window.authManager.currentUser.id,\n                text: text,\n                created_at: new Date().toISOString(),\n                sender_name: window.authManager.currentUser.full_name || window.authManager.currentUser.username\n            };\n            \n            // Add to UI immediately\n            this.addMessageToUI(tempMessage);\n            this.scrollToBottom();\n\n            // Send to database\n            let messageId;\n            try {\n                // Try SQL function first\n                const { data, error } = await window.supabase\n                    .rpc('send_message', {\n                        conv_id: this.currentConversation.conversationId,\n                        message_text: text\n                    });\n                \n                if (error) throw error;\n                messageId = data;\n                console.log('✅ Message sent via SQL function, ID:', messageId);\n            } catch (funcError) {\n                console.log('SQL function failed, trying direct insert:', funcError);\n                \n                // Fallback to direct insert\n                const { data, error } = await window.supabase\n                    .from('messages')\n                    .insert({\n                        conversation_id: this.currentConversation.conversationId,\n                        sender_id: window.authManager.currentUser.id,\n                        text: text\n                    })\n                    .select()\n                    .single();\n                \n                if (error) throw error;\n                messageId = data.id;\n                console.log('✅ Message sent via direct insert, ID:', messageId);\n            }\n\n            // Update temp message with real ID\n            const tempElement = document.querySelector(`[data-message-id=\"${tempMessage.id}\"]`);\n            if (tempElement) {\n                tempElement.setAttribute('data-message-id', messageId);\n            }\n\n        } catch (error) {\n            console.error('❌ Error sending message:', error);\n            \n            // Remove temp message on error\n            const tempElement = document.querySelector(`[data-message-id=\"${tempMessage.id}\"]`);\n            if (tempElement) {\n                tempElement.remove();\n            }\n            \n            // Restore input value\n            if (input) input.value = text;\n            \n            window.authManager?.showNotification('Failed to send message: ' + error.message, 'error');\n        }\n    }\n\n    addMessageToUI(message) {\n        const container = document.getElementById('chatMessages');\n        if (!container) return;\n        \n        // Remove welcome message if present\n        if (container.innerHTML.includes('Start the conversation')) {\n            container.innerHTML = '';\n        }\n        \n        // Check if message already exists (avoid duplicates)\n        const existingMessage = container.querySelector(`[data-message-id=\"${message.id}\"]`);\n        if (existingMessage) return;\n        \n        container.insertAdjacentHTML('beforeend', this.createMessageElement(message));\n    }\n\n    scrollToBottom() {\n        const container = document.getElementById('chatMessages');\n        if (container) {\n            container.scrollTop = container.scrollHeight;\n        }\n    }\n\n    getConversationId(userId1, userId2) {\n        return [userId1, userId2].sort().join('_');\n    }\n\n    async setupRealtime() {\n        if (!window.supabase) {\n            console.warn('⚠️ Supabase not available, realtime disabled');\n            return;\n        }\n\n        try {\n            console.log('🔄 Setting up realtime messaging...');\n            \n            this.realtimeChannel = window.supabase\n                .channel('instant-messages-v2')\n                .on('postgres_changes', {\n                    event: 'INSERT',\n                    schema: 'public',\n                    table: 'messages'\n                }, (payload) => {\n                    console.log('📨 Real-time message received:', payload);\n                    this.handleRealtimeMessage(payload.new);\n                })\n                .on('postgres_changes', {\n                    event: 'UPDATE',\n                    schema: 'public',\n                    table: 'messages'\n                }, (payload) => {\n                    console.log('📝 Message updated:', payload);\n                    // Handle message updates if needed\n                });\n\n            const { error } = await this.realtimeChannel.subscribe();\n            \n            if (error) {\n                throw error;\n            }\n            \n            console.log('✅ Realtime messaging enabled');\n            \n        } catch (error) {\n            console.error('❌ Realtime setup failed:', error);\n            // Continue without realtime\n        }\n    }\n\n    handleRealtimeMessage(message) {\n        // Only process if we have an active conversation\n        if (!this.currentConversation) return;\n        \n        // Only show messages for current conversation\n        if (message.conversation_id !== this.currentConversation.conversationId) return;\n        \n        // Don't show our own messages (already added to UI)\n        if (message.sender_id === window.authManager?.currentUser?.id) return;\n        \n        console.log('📥 Adding incoming message to UI');\n        \n        // Add sender info and display\n        this.addIncomingMessage(message);\n    }\n\n    async addIncomingMessage(message) {\n        try {\n            // Get sender info\n            const { data: sender } = await window.supabase\n                .from('profiles')\n                .select('full_name, username, profile_photo')\n                .eq('id', message.sender_id)\n                .single();\n            \n            message.sender_name = sender?.full_name || sender?.username || 'User';\n            message.sender_photo = sender?.profile_photo;\n            \n            this.addMessageToUI(message);\n            this.scrollToBottom();\n            \n            // Show notification if page is not visible\n            if (document.hidden) {\n                this.showMessageNotification(message, sender);\n            }\n            \n        } catch (error) {\n            console.error('Error getting sender info:', error);\n            message.sender_name = 'User';\n            this.addMessageToUI(message);\n            this.scrollToBottom();\n        }\n    }\n\n    showMessageNotification(message, sender) {\n        if ('Notification' in window && Notification.permission === 'granted') {\n            new Notification(`New message from ${sender?.full_name || sender?.username || 'User'}`, {\n                body: message.text,\n                icon: sender?.profile_photo || '/favicon.ico'\n            });\n        }\n    }\n\n    markConversationAsRead() {\n        if (!this.currentConversation) return;\n        \n        const conversationId = this.currentConversation.conversationId;\n        const timestamp = new Date().toISOString();\n        \n        localStorage.setItem(`last_read_${conversationId}`, timestamp);\n    }\n\n    setupConnectionMonitoring() {\n        // Monitor online/offline status\n        window.addEventListener('online', () => {\n            this.isOnline = true;\n            console.log('🟢 Connection restored');\n            this.processMessageQueue();\n        });\n        \n        window.addEventListener('offline', () => {\n            this.isOnline = false;\n            console.log('🔴 Connection lost');\n        });\n    }\n\n    async processMessageQueue() {\n        if (!this.isOnline || this.messageQueue.length === 0) return;\n        \n        console.log(`📤 Processing ${this.messageQueue.length} queued messages`);\n        \n        const queue = [...this.messageQueue];\n        this.messageQueue = [];\n        \n        for (const message of queue) {\n            try {\n                await this.sendMessage(message.text);\n            } catch (error) {\n                console.error('Failed to send queued message:', error);\n                this.messageQueue.push(message); // Re-queue on failure\n            }\n        }\n    }\n\n    cleanup() {\n        if (this.realtimeChannel) {\n            this.realtimeChannel.unsubscribe();\n            this.realtimeChannel = null;\n        }\n        \n        this.currentConversation = null;\n        console.log('🧹 Chat manager cleaned up');\n    }\n}\n\n// Replace the existing chat manager\nif (window.chatManager) {\n    window.chatManager.cleanup?.();\n}\n\nwindow.chatManager = new FixedChatManager();\n\n// Auto-initialize when DOM is ready\nif (document.readyState === 'loading') {\n    document.addEventListener('DOMContentLoaded', () => {\n        setTimeout(() => window.chatManager.initialize(), 100);\n    });\n} else {\n    setTimeout(() => window.chatManager.initialize(), 100);\n}\n\nconsole.log('🔧 Fixed Chat Manager loaded');
+                }
+            });
+        }
+    }
+
+    async startConversation(userId) {
+        if (!window.authManager?.currentUser) {
+            window.authManager?.showNotification('Please login first', 'error');
+            return;
+        }
+
+        try {
+            console.log('🔄 Starting conversation with user:', userId);
+            
+            // Get user info
+            const { data: otherUser, error } = await window.supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', userId)
+                .single();
+            
+            if (error) throw error;
+
+            this.currentConversation = {
+                userId: userId,
+                user: otherUser,
+                conversationId: this.getConversationId(window.authManager.currentUser.id, userId)
+            };
+
+            console.log('💬 Conversation ID:', this.currentConversation.conversationId);
+            
+            this.showChatInterface();
+            this.updateChatHeader(otherUser);
+            await this.loadMessages();
+            
+            // Mark conversation as read
+            this.markConversationAsRead();
+
+        } catch (error) {
+            console.error('❌ Error starting conversation:', error);
+            window.authManager?.showNotification('Failed to start conversation: ' + error.message, 'error');
+        }
+    }
+
+    showChatInterface() {
+        // Hide other sections
+        const homeFeed = document.getElementById('homeFeed');
+        const businessTools = document.getElementById('businessTools');
+        const chatMessages = document.getElementById('chatMessages');
+        const chatInputContainer = document.getElementById('chatInputContainer');
+        
+        if (homeFeed) homeFeed.style.display = 'none';
+        if (businessTools) businessTools.style.display = 'none';
+        if (chatMessages) chatMessages.style.display = 'flex';
+        if (chatInputContainer) chatInputContainer.style.display = 'block';
+        
+        // Focus message input
+        setTimeout(() => {
+            const messageInput = document.getElementById('messageInput');
+            if (messageInput) messageInput.focus();
+        }, 100);
+    }
+
+    updateChatHeader(user) {
+        const chatTitle = document.getElementById('chatTitle');
+        const chatStatus = document.getElementById('chatStatus');
+        
+        if (chatTitle) {
+            chatTitle.textContent = user.full_name || user.username;
+        }
+        
+        if (chatStatus) {
+            chatStatus.innerHTML = '<i class="fas fa-circle" style="color: #10b981; font-size: 8px; margin-right: 4px;"></i>Active now';
+        }
+    }
+
+    async loadMessages() {
+        if (!this.currentConversation) return;
+
+        try {
+            console.log('📥 Loading messages for conversation:', this.currentConversation.conversationId);
+            
+            const messagesContainer = document.getElementById('chatMessages');
+            if (messagesContainer) {
+                messagesContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #6b7280;"><i class="fas fa-spinner fa-spin"></i> Loading messages...</div>';
+            }
+
+            // Use the SQL function for better performance
+            let messages = [];
+            try {
+                const { data, error } = await window.supabase
+                    .rpc('get_conversation_messages', {
+                        conv_id: this.currentConversation.conversationId
+                    });
+                
+                if (error) throw error;
+                messages = data || [];
+            } catch (funcError) {
+                console.log('SQL function failed, using direct query:', funcError);
+                
+                // Fallback to direct query
+                const { data, error } = await window.supabase
+                    .from('messages')
+                    .select('*')
+                    .eq('conversation_id', this.currentConversation.conversationId)
+                    .order('created_at', { ascending: true });
+                
+                if (error) throw error;
+                messages = data || [];
+            }
+
+            console.log(`📨 Loaded ${messages.length} messages`);
+            this.displayMessages(messages);
+            this.scrollToBottom();
+
+        } catch (error) {
+            console.error('❌ Error loading messages:', error);
+            const messagesContainer = document.getElementById('chatMessages');
+            if (messagesContainer) {
+                messagesContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #ef4444;"><i class="fas fa-exclamation-triangle"></i><p>Failed to load messages</p><button onclick="window.chatManager.loadMessages()" style="background: #1e40af; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; margin-top: 8px;"><i class="fas fa-refresh"></i> Retry</button></div>';
+            }
+        }
+    }
+
+    displayMessages(messages) {
+        const container = document.getElementById('chatMessages');
+        if (!container) return;
+        
+        if (messages.length === 0) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: #6b7280;">
+                    <i class="fas fa-comments" style="font-size: 48px; margin-bottom: 16px; color: #d1d5db;"></i>
+                    <h3>Start the conversation</h3>
+                    <p>Send a message to ${this.currentConversation.user.full_name || this.currentConversation.user.username}</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = messages.map(msg => this.createMessageElement(msg)).join('');
+    }
+
+    createMessageElement(message) {
+        const isOwn = message.sender_id === window.authManager?.currentUser?.id;
+        const time = new Date(message.created_at).toLocaleTimeString([], { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+        });
+        
+        const senderName = message.sender_name || 
+                          (isOwn ? window.authManager?.currentUser?.full_name : this.currentConversation?.user?.username) || 
+                          'User';
+        
+        return `
+            <div class="message ${isOwn ? 'own' : ''}" data-message-id="${message.id}">
+                <div class="message-avatar">
+                    ${isOwn ? 
+                        (window.authManager?.currentUser?.full_name || window.authManager?.currentUser?.username || 'U').charAt(0).toUpperCase() :
+                        senderName.charAt(0).toUpperCase()
+                    }
+                </div>
+                <div class="message-content">
+                    <div class="message-text">${this.escapeHtml(message.text)}</div>
+                    <div class="message-time">${time}</div>
+                </div>
+            </div>
+        `;
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    async sendMessage() {
+        const input = document.getElementById('messageInput');
+        const text = input?.value?.trim();
+        
+        if (!text || !this.currentConversation) return;
+
+        try {
+            console.log('📤 Sending message:', text);
+            
+            // Clear input immediately for better UX
+            input.value = '';
+            
+            // Create temporary message for instant UI feedback
+            const tempMessage = {
+                id: 'temp-' + Date.now(),
+                conversation_id: this.currentConversation.conversationId,
+                sender_id: window.authManager.currentUser.id,
+                text: text,
+                created_at: new Date().toISOString(),
+                sender_name: window.authManager.currentUser.full_name || window.authManager.currentUser.username
+            };
+            
+            // Add to UI immediately
+            this.addMessageToUI(tempMessage);
+            this.scrollToBottom();
+
+            // Send to database
+            let messageId;
+            try {
+                // Try SQL function first
+                const { data, error } = await window.supabase
+                    .rpc('send_message', {
+                        conv_id: this.currentConversation.conversationId,
+                        message_text: text
+                    });
+                
+                if (error) throw error;
+                messageId = data;
+                console.log('✅ Message sent via SQL function, ID:', messageId);
+            } catch (funcError) {
+                console.log('SQL function failed, trying direct insert:', funcError);
+                
+                // Fallback to direct insert
+                const { data, error } = await window.supabase
+                    .from('messages')
+                    .insert({
+                        conversation_id: this.currentConversation.conversationId,
+                        sender_id: window.authManager.currentUser.id,
+                        text: text
+                    })
+                    .select()
+                    .single();
+                
+                if (error) throw error;
+                messageId = data.id;
+                console.log('✅ Message sent via direct insert, ID:', messageId);
+            }
+
+            // Update temp message with real ID
+            const tempElement = document.querySelector(`[data-message-id="${tempMessage.id}"]`);
+            if (tempElement) {
+                tempElement.setAttribute('data-message-id', messageId);
+            }
+
+        } catch (error) {
+            console.error('❌ Error sending message:', error);
+            
+            // Remove temp message on error
+            const tempElement = document.querySelector(`[data-message-id="${tempMessage.id}"]`);
+            if (tempElement) {
+                tempElement.remove();
+            }
+            
+            // Restore input value
+            if (input) input.value = text;
+            
+            window.authManager?.showNotification('Failed to send message: ' + error.message, 'error');
+        }
+    }
+
+    addMessageToUI(message) {
+        const container = document.getElementById('chatMessages');
+        if (!container) return;
+        
+        // Remove welcome message if present
+        if (container.innerHTML.includes('Start the conversation')) {
+            container.innerHTML = '';
+        }
+        
+        // Check if message already exists (avoid duplicates)
+        const existingMessage = container.querySelector(`[data-message-id="${message.id}"]`);
+        if (existingMessage) return;
+        
+        container.insertAdjacentHTML('beforeend', this.createMessageElement(message));
+    }
+
+    scrollToBottom() {
+        const container = document.getElementById('chatMessages');
+        if (container) {
+            container.scrollTop = container.scrollHeight;
+        }
+    }
+
+    getConversationId(userId1, userId2) {
+        return [userId1, userId2].sort().join('_');
+    }
+
+    async setupRealtime() {
+        if (!window.supabase) {
+            console.warn('⚠️ Supabase not available, realtime disabled');
+            return;
+        }
+
+        try {
+            console.log('🔄 Setting up realtime messaging...');
+            
+            this.realtimeChannel = window.supabase
+                .channel('instant-messages-v2')
+                .on('postgres_changes', {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'messages'
+                }, (payload) => {
+                    console.log('📨 Real-time message received:', payload);
+                    this.handleRealtimeMessage(payload.new);
+                });
+
+            const { error } = await this.realtimeChannel.subscribe();
+            
+            if (error) {
+                throw error;
+            }
+            
+            console.log('✅ Realtime messaging enabled');
+            
+        } catch (error) {
+            console.error('❌ Realtime setup failed:', error);
+            // Continue without realtime
+        }
+    }
+
+    handleRealtimeMessage(message) {
+        // Only process if we have an active conversation
+        if (!this.currentConversation) return;
+        
+        // Only show messages for current conversation
+        if (message.conversation_id !== this.currentConversation.conversationId) return;
+        
+        // Don't show our own messages (already added to UI)
+        if (message.sender_id === window.authManager?.currentUser?.id) return;
+        
+        console.log('📥 Adding incoming message to UI');
+        
+        // Add sender info and display
+        this.addIncomingMessage(message);
+    }
+
+    async addIncomingMessage(message) {
+        try {
+            // Get sender info
+            const { data: sender } = await window.supabase
+                .from('profiles')
+                .select('full_name, username, profile_photo')
+                .eq('id', message.sender_id)
+                .single();
+            
+            message.sender_name = sender?.full_name || sender?.username || 'User';
+            message.sender_photo = sender?.profile_photo;
+            
+            this.addMessageToUI(message);
+            this.scrollToBottom();
+            
+        } catch (error) {
+            console.error('Error getting sender info:', error);
+            message.sender_name = 'User';
+            this.addMessageToUI(message);
+            this.scrollToBottom();
+        }
+    }
+
+    markConversationAsRead() {
+        if (!this.currentConversation) return;
+        
+        const conversationId = this.currentConversation.conversationId;
+        const timestamp = new Date().toISOString();
+        
+        localStorage.setItem(`last_read_${conversationId}`, timestamp);
+    }
+
+    setupConnectionMonitoring() {
+        // Monitor online/offline status
+        window.addEventListener('online', () => {
+            this.isOnline = true;
+            console.log('🟢 Connection restored');
+        });
+        
+        window.addEventListener('offline', () => {
+            this.isOnline = false;
+            console.log('🔴 Connection lost');
+        });
+    }
+
+    cleanup() {
+        if (this.realtimeChannel) {
+            this.realtimeChannel.unsubscribe();
+            this.realtimeChannel = null;
+        }
+        
+        this.currentConversation = null;
+        console.log('🧹 Chat manager cleaned up');
+    }
+}
+
+// Replace the existing chat manager
+if (window.chatManager) {
+    window.chatManager.cleanup?.();
+}
+
+window.chatManager = new FixedChatManager();
+
+// Auto-initialize when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => window.chatManager.initialize(), 100);
+    });
+} else {
+    setTimeout(() => window.chatManager.initialize(), 100);
+}
+
+console.log('🔧 Fixed Chat Manager loaded');
