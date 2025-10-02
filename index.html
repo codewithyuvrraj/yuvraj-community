@@ -20,6 +20,8 @@
     <script src="debug-chat.js"></script>
     <!-- Test Messaging -->
     <script src="test-messaging.js"></script>
+    <!-- Chat Settings -->
+    <script src="chat-settings.js"></script>
     
     <style>
         /* Reset and Base Styles */
@@ -1533,8 +1535,8 @@
                     <div class="chat-info">
                         <h3 id="chatTitle">BusinessConnect</h3>
                         <span id="chatStatus" class="status-indicator"></span>
-                        <button id="chatOptionsBtn" class="btn btn-icon" title="Chat Options" style="display: none; margin-left: 8px;" onclick="window.authManager.showChatOptionsFromHeader()">
-                            <i class="fas fa-ellipsis-v"></i>
+                        <button id="chatOptionsBtn" class="btn btn-icon" title="Chat Settings" style="display: none; margin-left: 8px;" onclick="window.authManager.showChatSettingsFromHeader()">
+                            <i class="fas fa-cog"></i>
                         </button>
                     </div>
                     <div class="chat-actions">
@@ -4163,6 +4165,14 @@
                 if (window.chatManager && window.chatManager.currentConversation) {
                     const user = window.chatManager.currentConversation.user;
                     this.showChatOptions(user.id, user.full_name || user.username);
+                }
+            }
+            
+            showChatSettingsFromHeader() {
+                if (window.chatManager && window.chatManager.currentConversation && window.chatSettings) {
+                    const user = window.chatManager.currentConversation.user;
+                    const conversationId = window.chatManager.currentConversation.conversationId;
+                    window.chatSettings.showChatSettings(conversationId, user.full_name || user.username);
                 }
             }
             

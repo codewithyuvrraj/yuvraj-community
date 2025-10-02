@@ -58,6 +58,27 @@ class SimpleInstantChat {
         }
     }
 
+    async startGroupConversation(groupId) {
+        if (!window.authManager || !window.authManager.currentUser) return;
+
+        try {
+            // For now, show a placeholder for group functionality
+            this.currentConversation = {
+                groupId,
+                isGroup: true,
+                conversationId: 'group_' + groupId
+            };
+
+            this.showChat();
+            this.updateGroupHeader(groupId);
+            await this.loadGroupMessages();
+            
+            this.startPolling();
+        } catch (error) {
+            console.error('Start group conversation error:', error);
+        }
+    }
+
     showChat() {
         const homeFeed = document.getElementById('homeFeed');
         const businessTools = document.getElementById('businessTools');
@@ -111,6 +132,26 @@ class SimpleInstantChat {
         }
     }
 
+    updateGroupHeader(groupId) {
+        const chatTitle = document.getElementById('chatTitle');
+        const chatStatus = document.getElementById('chatStatus');
+        const chatOptionsBtn = document.getElementById('chatOptionsBtn');
+        
+        if (chatTitle) {
+            chatTitle.textContent = 'Group ' + groupId;
+            chatTitle.style.cursor = 'default';
+            chatTitle.onclick = null;
+        }
+        
+        if (chatStatus) {
+            chatStatus.innerHTML = '<i class="fas fa-users" style="color: #25d366; font-size: 8px; margin-right: 4px;"></i>Group Chat';
+        }
+        
+        if (chatOptionsBtn) {
+            chatOptionsBtn.style.display = 'none';
+        }
+    }
+
     async loadMessages() {
         const container = document.getElementById('chatMessages');
         if (!container) return;
@@ -140,6 +181,19 @@ class SimpleInstantChat {
         } catch (error) {
             container.innerHTML = '<div style="text-align: center; padding: 20px; color: #e74c3c;">Error loading messages</div>';
         }
+    }
+
+    async loadGroupMessages() {
+        const container = document.getElementById('chatMessages');
+        if (!container) return;
+        
+        // Show typing indicator
+        container.innerHTML = '<div style="text-align: center; padding: 20px; color: #667781;"><i class="fas fa-circle" style="animation: pulse 1s infinite;"></i> <i class="fas fa-circle" style="animation: pulse 1s infinite 0.2s;"></i> <i class="fas fa-circle" style="animation: pulse 1s infinite 0.4s;"></i></div>';
+
+        // Small delay to show loading animation
+        setTimeout(() => {
+            container.innerHTML = '<div style="text-align: center; padding: 40px; color: #667781;">Group chat functionality coming soon!</div>';
+        }, 300);
     }
 
     displayMessages(messages) {
