@@ -177,31 +177,39 @@ class ChatManager {
                 conversation_id: this.currentConversation.conversationId,
                 sender_id: window.authManager.currentUser.id,
                 text: text,
-                type: 'text'
+                type: 'text',
+                timestamp: new Date().toISOString(),
+                created_at: new Date().toISOString()
             };
+
+            console.log('Sending message:', message);
 
             // Clear input and add to UI immediately
             input.value = '';
             this.addMessageToUI({
                 ...message,
-                id: Date.now().toString(),
-                timestamp: new Date().toISOString()
+                id: Date.now().toString()
             });
 
             // Save to database
             if (window.isSupabaseEnabled && window.supabase) {
-                const { error } = await window.supabase
+                const { data, error } = await window.supabase
                     .from('messages')
-                    .insert(message);
+                    .insert(message)
+                    .select();
                 
-                if (error) throw error;
+                if (error) {
+                    console.error('Supabase error details:', error);
+                    throw error;
+                }
+                console.log('Message saved:', data);
             }
 
             this.scrollToBottom();
 
         } catch (error) {
             console.error('Error sending message:', error);
-            window.authManager.showNotification('Failed to send message', 'error');
+            window.authManager.showNotification('Failed to send message: ' + (error.message || 'Unknown error'), 'error');
         }
     }
 
