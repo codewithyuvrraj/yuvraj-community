@@ -472,6 +472,11 @@
                 return;
             }
 
+            const followBtn = event.target;
+            const originalText = followBtn.innerHTML;
+            followBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Following...';
+            followBtn.disabled = true;
+
             try {
                 if (isSupabaseEnabled) {
                     const { error } = await supabase
@@ -483,15 +488,19 @@
                     
                     if (error) {
                         if (error.code === '23505') {
-                            alert('You are already following this user');
+                            followBtn.innerHTML = '<i class="fas fa-check"></i> Following';
+                            followBtn.style.background = '#10b981';
+                            followBtn.onclick = () => unfollowUser(userId);
+                            return;
                         } else {
                             throw error;
                         }
-                        return;
                     }
                 }
                 
-                alert('User followed successfully!');
+                followBtn.innerHTML = '<i class="fas fa-check"></i> Following';
+                followBtn.style.background = '#10b981';
+                followBtn.onclick = () => unfollowUser(userId);
                 
                 // Notify parent window if opened from main app
                 if (window.opener) {
@@ -503,7 +512,40 @@
                 
             } catch (error) {
                 console.error('Follow error:', error);
+                followBtn.innerHTML = originalText;
+                followBtn.disabled = false;
                 alert('Failed to follow user');
+            }
+        }
+        
+        async function unfollowUser(userId) {
+            if (!currentUser) return;
+
+            const followBtn = event.target;
+            followBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Unfollowing...';
+            followBtn.disabled = true;
+
+            try {
+                if (isSupabaseEnabled) {
+                    const { error } = await supabase
+                        .from('follows')
+                        .delete()
+                        .eq('follower_id', currentUser.id)
+                        .eq('following_id', userId);
+                    
+                    if (error) throw error;
+                }
+                
+                followBtn.innerHTML = '<i class="fas fa-user-plus"></i> Follow';
+                followBtn.style.background = '#6b7280';
+                followBtn.onclick = () => followUser(userId);
+                
+                localStorage.setItem('feed_refresh', Date.now().toString());
+                
+            } catch (error) {
+                console.error('Unfollow error:', error);
+                followBtn.innerHTML = '<i class="fas fa-check"></i> Following';
+                followBtn.disabled = false;
             }
         }
 
