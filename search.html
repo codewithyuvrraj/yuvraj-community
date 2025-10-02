@@ -322,11 +322,14 @@
                 let users = [];
                 
                 if (isSupabaseEnabled) {
+                    console.log('Searching for:', query);
                     const { data, error } = await supabase
                         .from('profiles')
-                        .select('*')
+                        .select('id, username, full_name, email, profile_photo, bio, job_title, company, industry, created_at')
                         .or(`username.ilike.%${query}%,full_name.ilike.%${query}%,email.ilike.%${query}%`)
                         .neq('id', currentUser?.id || '00000000-0000-0000-0000-000000000000')
+                        .not('username', 'is', null)
+                        .not('full_name', 'is', null)
                         .limit(50);
                     
                     if (error) {
@@ -334,6 +337,7 @@
                         throw error;
                     }
                     users = data || [];
+                    console.log('Found users:', users);
                 } else {
                     users = [];
                 }
@@ -414,10 +418,13 @@
                 let users = [];
                 
                 if (isSupabaseEnabled) {
+                    console.log('Loading all users...');
                     const { data, error } = await supabase
                         .from('profiles')
-                        .select('*')
+                        .select('id, username, full_name, email, profile_photo, bio, job_title, company, industry, created_at')
                         .neq('id', currentUser?.id || '00000000-0000-0000-0000-000000000000')
+                        .not('username', 'is', null)
+                        .not('full_name', 'is', null)
                         .order('created_at', { ascending: false })
                         .limit(100);
                     
@@ -426,6 +433,7 @@
                         throw error;
                     }
                     users = data || [];
+                    console.log('Loaded users:', users.length);
                 } else {
                     users = [];
                 }
