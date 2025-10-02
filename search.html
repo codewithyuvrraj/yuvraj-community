@@ -303,13 +303,7 @@
             const resultsContainer = document.getElementById('searchResults');
             
             if (!query) {
-                resultsContainer.innerHTML = `
-                    <div class="no-results">
-                        <i class="fas fa-search"></i>
-                        <h3>Start Your Search</h3>
-                        <p>Enter a name, username, or email to find professionals</p>
-                    </div>
-                `;
+                showAllUsers();
                 return;
             }
 
@@ -330,16 +324,48 @@
                         .from('profiles')
                         .select('*')
                         .or(`username.ilike.%${query}%,email.ilike.%${query}%,full_name.ilike.%${query}%`)
-                        .is('deleted_at', null)
                         .limit(20);
                     
-                    if (error) throw error;
+                    if (error) {
+                        console.error('Search error:', error);
+                        throw error;
+                    }
                     users = data || [];
                     
                     // Filter out current user
                     if (currentUser) {
                         users = users.filter(user => user.id !== currentUser.id);
                     }
+                } else {
+                    // Demo search
+                    const demoUsers = [
+                        {
+                            id: 'demo1',
+                            username: 'johndoe',
+                            full_name: 'John Doe',
+                            email: 'john@example.com',
+                            job_title: 'Software Engineer',
+                            company: 'Tech Corp',
+                            industry: 'Technology',
+                            bio: 'Passionate about building great software'
+                        },
+                        {
+                            id: 'demo2',
+                            username: 'janedoe',
+                            full_name: 'Jane Smith',
+                            email: 'jane@example.com',
+                            job_title: 'Product Manager',
+                            company: 'Innovation Inc',
+                            industry: 'Technology',
+                            bio: 'Leading product development teams'
+                        }
+                    ];
+                    
+                    users = demoUsers.filter(user => 
+                        user.username.toLowerCase().includes(query.toLowerCase()) ||
+                        user.full_name.toLowerCase().includes(query.toLowerCase()) ||
+                        user.email.toLowerCase().includes(query.toLowerCase())
+                    );
                 }
 
                 displayResults(users);
@@ -349,7 +375,10 @@
                     <div class="no-results">
                         <i class="fas fa-exclamation-triangle"></i>
                         <h3>Search Error</h3>
-                        <p>Unable to search at this time. Please try again.</p>
+                        <p>Connection failed. Try demo search.</p>
+                        <button class="btn btn-primary" onclick="showDemoUsers()" style="margin-top: 12px;">
+                            <i class="fas fa-users"></i> Show Demo Users
+                        </button>
                     </div>
                 `;
             }
@@ -418,16 +447,40 @@
                     const { data, error } = await supabase
                         .from('profiles')
                         .select('*')
-                        .is('deleted_at', null)
                         .limit(50);
                     
-                    if (error) throw error;
+                    if (error) {
+                        console.error('Supabase error:', error);
+                        throw error;
+                    }
                     users = data || [];
                     
                     // Filter out current user
                     if (currentUser) {
                         users = users.filter(user => user.id !== currentUser.id);
                     }
+                } else {
+                    // Fallback to demo users
+                    users = [
+                        {
+                            id: 'demo1',
+                            username: 'johndoe',
+                            full_name: 'John Doe',
+                            email: 'john@example.com',
+                            job_title: 'Software Engineer',
+                            company: 'Tech Corp',
+                            bio: 'Passionate about building great software'
+                        },
+                        {
+                            id: 'demo2',
+                            username: 'janedoe',
+                            full_name: 'Jane Smith',
+                            email: 'jane@example.com',
+                            job_title: 'Product Manager',
+                            company: 'Innovation Inc',
+                            bio: 'Leading product development teams'
+                        }
+                    ];
                 }
 
                 displayResults(users);
@@ -436,11 +489,50 @@
                 resultsContainer.innerHTML = `
                     <div class="no-results">
                         <i class="fas fa-exclamation-triangle"></i>
-                        <h3>Load Error</h3>
-                        <p>Unable to load users. Please try again.</p>
+                        <h3>Connection Error</h3>
+                        <p>Unable to connect to server. Showing demo users.</p>
+                        <button class="btn btn-primary" onclick="showDemoUsers()" style="margin-top: 12px;">
+                            <i class="fas fa-users"></i> Show Demo Users
+                        </button>
                     </div>
                 `;
             }
+        }
+        
+        function showDemoUsers() {
+            const demoUsers = [
+                {
+                    id: 'demo1',
+                    username: 'johndoe',
+                    full_name: 'John Doe',
+                    email: 'john@example.com',
+                    job_title: 'Software Engineer',
+                    company: 'Tech Corp',
+                    industry: 'Technology',
+                    bio: 'Passionate about building great software and leading development teams.'
+                },
+                {
+                    id: 'demo2',
+                    username: 'janedoe',
+                    full_name: 'Jane Smith',
+                    email: 'jane@example.com',
+                    job_title: 'Product Manager',
+                    company: 'Innovation Inc',
+                    industry: 'Technology',
+                    bio: 'Leading product development teams and driving innovation.'
+                },
+                {
+                    id: 'demo3',
+                    username: 'mikebrown',
+                    full_name: 'Mike Brown',
+                    email: 'mike@example.com',
+                    job_title: 'Marketing Director',
+                    company: 'Growth Co',
+                    industry: 'Marketing',
+                    bio: 'Expert in digital marketing and brand strategy.'
+                }
+            ];
+            displayResults(demoUsers);
         }
 
         async function startChat(userId) {
