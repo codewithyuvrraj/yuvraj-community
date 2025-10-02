@@ -1826,7 +1826,6 @@
                 }
 
                 this.setupFormHandlers();
-                this.updateConnectionStatus();
             }
 
             setupFormHandlers() {
@@ -2233,31 +2232,7 @@
                 }
             }
 
-            async updateConnectionStatus() {
-                const statusEl = document.getElementById('connectionStatus');
-                if (isSupabaseEnabled) {
-                    try {
-                        // Test connection
-                        const { data, error } = await supabase.from('profiles').select('id').limit(1);
-                        if (!error) {
-                            statusEl.textContent = 'Connected - Online';
-                            statusEl.className = 'connection-status';
-                        } else {
-                            throw error;
-                        }
-                    } catch (error) {
-                        console.error('Connection test failed:', error);
-                        statusEl.textContent = 'Connection Error';
-                        statusEl.className = 'connection-status offline';
-                        isSupabaseEnabled = false;
-                    }
-                } else {
-                    statusEl.textContent = 'Offline Mode';
-                    statusEl.className = 'connection-status offline';
-                }
-                statusEl.style.display = 'block';
-                setTimeout(() => statusEl.style.display = 'none', 3000);
-            }
+
 
             showNotification(message, type = 'success') {
                 const notification = document.createElement('div');
@@ -2563,46 +2538,11 @@
                 if (refreshBtn) {
                     refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
                 }
-                
-                // Check online/offline status
-                await this.checkConnectionStatus();
-                
                 await this.loadHomeFeed();
                 await this.updateNotificationBadge();
                 if (refreshBtn) {
                     refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
                 }
-            }
-            
-            async checkConnectionStatus() {
-                const statusEl = document.getElementById('connectionStatus');
-                
-                try {
-                    if (navigator.onLine) {
-                        if (isSupabaseEnabled) {
-                            // Test actual connection to Supabase
-                            const { error } = await supabase.from('profiles').select('id').limit(1);
-                            if (!error) {
-                                statusEl.textContent = '🟢 Online';
-                                statusEl.className = 'connection-status';
-                            } else {
-                                throw error;
-                            }
-                        } else {
-                            statusEl.textContent = '🟡 Local Mode';
-                            statusEl.className = 'connection-status connecting';
-                        }
-                    } else {
-                        statusEl.textContent = '🔴 Offline';
-                        statusEl.className = 'connection-status offline';
-                    }
-                } catch (error) {
-                    statusEl.textContent = '🔴 Connection Failed';
-                    statusEl.className = 'connection-status offline';
-                }
-                
-                statusEl.style.display = 'block';
-                setTimeout(() => statusEl.style.display = 'none', 2000);
             }
             
             async loadHomeFeed() {
