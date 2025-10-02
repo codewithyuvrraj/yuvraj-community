@@ -236,11 +236,7 @@
     </style>
 </head>
 <body>
-<<<<<<< HEAD
     <button class="back-btn" onclick="window.location.href='index.html'">
-=======
-    <button class="back-btn" onclick="window.location.href='businessconnect.html'">
->>>>>>> 5fe5ad4fd9e7eb96000976821d3ce2f8a328eb83
         <i class="fas fa-arrow-left"></i>
     </button>
 
@@ -252,8 +248,8 @@
             <div class="search-box">
                 <input type="text" id="searchInput" placeholder="Search by name, username, or email...">
                 <div class="search-actions">
-                    <button class="btn btn-secondary" id="refreshBtn" onclick="refreshSearch()">
-                        <i class="fas fa-sync-alt"></i> Refresh
+                    <button class="btn btn-secondary" onclick="showAllUsers()">
+                        <i class="fas fa-users"></i> All
                     </button>
                     <button class="btn btn-primary" onclick="performSearch()">
                         <i class="fas fa-search"></i> Search
@@ -403,27 +399,48 @@
             `).join('');
         }
 
-        async function refreshSearch() {
-            const refreshBtn = document.getElementById('refreshBtn');
-            const originalContent = refreshBtn.innerHTML;
+        async function showAllUsers() {
+            const resultsContainer = document.getElementById('searchResults');
             
-            refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing';
-            refreshBtn.disabled = true;
-            
-            // Clear search and reset
-            document.getElementById('searchInput').value = '';
-            document.getElementById('searchResults').innerHTML = `
-                <div class="no-results">
-                    <i class="fas fa-search"></i>
-                    <h3>Start Your Search</h3>
-                    <p>Enter a name, username, or email to find professionals</p>
+            // Show loading
+            resultsContainer.innerHTML = `
+                <div class="loading">
+                    <i class="fas fa-spinner"></i>
+                    <h3>Loading Users...</h3>
+                    <p>Fetching all professionals</p>
                 </div>
             `;
-            
-            setTimeout(() => {
-                refreshBtn.innerHTML = originalContent;
-                refreshBtn.disabled = false;
-            }, 1000);
+
+            try {
+                let users = [];
+                
+                if (isSupabaseEnabled) {
+                    const { data, error } = await supabase
+                        .from('profiles')
+                        .select('*')
+                        .is('deleted_at', null)
+                        .limit(50);
+                    
+                    if (error) throw error;
+                    users = data || [];
+                    
+                    // Filter out current user
+                    if (currentUser) {
+                        users = users.filter(user => user.id !== currentUser.id);
+                    }
+                }
+
+                displayResults(users);
+            } catch (error) {
+                console.error('Load users error:', error);
+                resultsContainer.innerHTML = `
+                    <div class="no-results">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h3>Load Error</h3>
+                        <p>Unable to load users. Please try again.</p>
+                    </div>
+                `;
+            }
         }
 
         async function startChat(userId) {
@@ -436,11 +453,7 @@
             localStorage.setItem('start_chat_with', userId);
             
             // Redirect back to main app
-<<<<<<< HEAD
             window.location.href = 'index.html';
-=======
-            window.location.href = 'businessconnect.html';
->>>>>>> 5fe5ad4fd9e7eb96000976821d3ce2f8a328eb83
         }
 
         async function followUser(userId) {
@@ -484,8 +497,11 @@
             }
         }
 
-        // Auto-focus search input
+        // Auto-focus search input and load all users on page load
         document.getElementById('searchInput').focus();
+        
+        // Load all users when page loads
+        window.addEventListener('load', showAllUsers);
     </script>
 </body>
 </html>
