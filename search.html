@@ -327,7 +327,6 @@
                         .select('*')
                         .ilike('username', `%${query}%`)
                         .neq('id', currentUser?.id || '00000000-0000-0000-0000-000000000000')
-                        .is('deleted_at', null)
                         .limit(20);
                     
                     if (error) throw error;
@@ -413,7 +412,6 @@
                         .from('profiles')
                         .select('*')
                         .neq('id', currentUser?.id || '00000000-0000-0000-0000-000000000000')
-                        .is('deleted_at', null)
                         .limit(50);
                     
                     if (error) throw error;
