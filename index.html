@@ -12,6 +12,8 @@
     <script src="registration-fix.js"></script>
     <!-- Simple Instant Chat -->
     <script src="simple-instant-chat.js"></script>
+    <!-- Presence Manager -->
+    <script src="presence-manager.js"></script>
     <!-- Auth Debug -->
     <script src="auth-debug.js"></script>
     <!-- Debug Chat -->
@@ -1874,6 +1876,11 @@
 
                         this.currentUser = profile;
                         console.log('User profile loaded:', this.currentUser);
+                        
+                        // Set user online
+                        if (window.presenceManager) {
+                            await window.presenceManager.setOnline(this.currentUser.id);
+                        }
                     } else {
                         console.log('Using local authentication fallback');
                         
@@ -2051,7 +2058,10 @@
 
             async logout() {
                 try {
-                    if (isSupabaseEnabled) {
+                    if (isSupabaseEnabled && this.currentUser) {
+                        if (window.presenceManager) {
+                            await window.presenceManager.setOffline(this.currentUser.id);
+                        }
                         await supabase.auth.signOut();
                     }
                 } catch (error) {
