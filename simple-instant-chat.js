@@ -146,9 +146,10 @@ class SimpleInstantChat {
             window.authManager.showDeleteChatInSettings();
         }
         
-        // Show chat lock button in settings if available
+        // Update chat lock UI
         if (window.chatLockManager) {
-            window.chatLockManager.showChatLockInSettings();
+            const conversationId = this.currentConversation.conversationId;
+            window.chatLockManager.updateChatLockUI(conversationId, window.chatLockManager.isChatLocked(conversationId));
         }
     }
 

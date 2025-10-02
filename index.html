@@ -3958,7 +3958,7 @@
             }
             
             toggleChatLockFromUI() {
-                if (!window.chatManager || !window.chatManager.currentConversation) return;
+                if (!window.chatManager || !window.chatManager.currentConversation || !window.chatLockManager) return;
                 
                 const conversationId = window.chatManager.currentConversation.conversationId;
                 const isLocked = window.chatLockManager.isChatLocked(conversationId);
@@ -3970,17 +3970,21 @@
                     const success = window.chatLockManager.lockChat(conversationId);
                     if (success) {
                         this.showNotification('Chat locked', 'success');
+                    } else {
+                        return; // Password modal will be shown
                     }
                 }
                 
-                // Update button state
-                const lockBtn = document.getElementById('lockChatFromUIBtn');
-                const lockText = document.getElementById('lockChatFromUIText');
-                if (lockBtn && lockText) {
-                    const newIsLocked = window.chatLockManager.isChatLocked(conversationId);
-                    lockBtn.style.background = newIsLocked ? '#ef4444' : '#f59e0b';
-                    lockText.textContent = newIsLocked ? 'Unlock Current Chat' : 'Lock Current Chat';
-                }
+                // Update button state immediately
+                setTimeout(() => {
+                    const lockBtn = document.getElementById('lockChatFromUIBtn');
+                    const lockText = document.getElementById('lockChatFromUIText');
+                    if (lockBtn && lockText) {
+                        const newIsLocked = window.chatLockManager.isChatLocked(conversationId);
+                        lockBtn.style.background = newIsLocked ? '#ef4444' : '#f59e0b';
+                        lockText.textContent = newIsLocked ? 'Unlock Current Chat' : 'Lock Current Chat';
+                    }
+                }, 100);
             }
             
             showChatOptions(userId, userName) {
@@ -4390,13 +4394,21 @@
                     
                     if (error) throw error;
                     
+                    // Clear chat UI immediately
+                    const chatMessages = document.getElementById('chatMessages');
+                    if (chatMessages) {
+                        chatMessages.innerHTML = '<div style="text-align: center; padding: 40px; color: #667781;">Chat deleted</div>';
+                    }
+                    
                     this.showNotification('Chat deleted and saved to database', 'success');
                     
-                    // Go back to home feed
-                    if (window.chatManager) {
-                        window.chatManager.cleanup();
-                    }
-                    this.goBackToHomeFeed();
+                    // Go back to home feed after delay
+                    setTimeout(() => {
+                        if (window.chatManager) {
+                            window.chatManager.cleanup();
+                        }
+                        this.goBackToHomeFeed();
+                    }, 1000);
                     
                 } catch (error) {
                     console.error('Error deleting chat:', error);
@@ -4420,13 +4432,21 @@
                     
                     if (error) throw error;
                     
+                    // Clear chat UI immediately
+                    const chatMessages = document.getElementById('chatMessages');
+                    if (chatMessages) {
+                        chatMessages.innerHTML = '<div style="text-align: center; padding: 40px; color: #667781;">Chat deleted</div>';
+                    }
+                    
                     this.showNotification('Chat deleted', 'success');
                     
-                    // Go back to home feed
-                    if (window.chatManager) {
-                        window.chatManager.cleanup();
-                    }
-                    this.goBackToHomeFeed();
+                    // Go back to home feed after delay
+                    setTimeout(() => {
+                        if (window.chatManager) {
+                            window.chatManager.cleanup();
+                        }
+                        this.goBackToHomeFeed();
+                    }, 1000);
                     
                 } catch (error) {
                     console.error('Error deleting chat:', error);

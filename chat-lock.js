@@ -5,45 +5,15 @@ class ChatLockManager {
         this.lockPassword = null;
         this.isUnlocked = false;
         this.loadLockedChats();
-        
-        // Load from database when user is available
-        if (window.authManager?.currentUser) {
-            this.loadLockedChats();
-        } else {
-            // Wait for user to be available
-            setTimeout(() => {
-                if (window.authManager?.currentUser) {
-                    this.loadLockedChats();
-                }
-            }, 1000);
-        }
     }
 
-    // Load locked chats from localStorage and database
-    async loadLockedChats() {
+    // Load locked chats from localStorage
+    loadLockedChats() {
         const stored = localStorage.getItem('lockedChats');
         if (stored) {
             this.lockedChats = new Set(JSON.parse(stored));
         }
         this.lockPassword = localStorage.getItem('chatLockPassword');
-        
-        // Load from database if available
-        if (window.isSupabaseEnabled && window.authManager?.currentUser) {
-            try {
-                const { data } = await window.supabase.rpc('get_locked_conversations_for_user', {
-                    p_user_id: window.authManager.currentUser.id
-                });
-                
-                if (data) {
-                    data.forEach(item => {
-                        this.lockedChats.add(item.conversation_id);
-                    });
-                    this.saveLockedChats();
-                }
-            } catch (error) {
-                console.error('Error loading locked chats from database:', error);
-            }
-        }
     }
 
     // Save locked chats to localStorage
@@ -63,45 +33,39 @@ class ChatLockManager {
     }
 
     // Lock a chat
-    async lockChat(conversationId) {
+    lockChat(conversationId) {
         if (!this.lockPassword) {
             this.showSetPasswordModal();
             return false;
         }
         
-        try {
-            if (window.isSupabaseEnabled && window.authManager?.currentUser) {
-                await window.supabase.rpc('lock_conversation', {
-                    p_user_id: window.authManager.currentUser.id,
-                    p_conversation_id: conversationId
-                });
-            }
-            
-            this.lockedChats.add(conversationId);
-            this.saveLockedChats();
-            this.updateChatLockUI(conversationId, true);
-            return true;
-        } catch (error) {
-            console.error('Error locking chat:', error);
-            return false;
+        this.lockedChats.add(conversationId);
+        this.saveLockedChats();
+        this.updateChatLockUI(conversationId, true);
+        
+        // Save to database in background
+        if (window.isSupabaseEnabled && window.authManager?.currentUser) {
+            window.supabase.rpc('lock_conversation', {
+                p_user_id: window.authManager.currentUser.id,
+                p_conversation_id: conversationId
+            }).catch(error => console.error('Error saving lock to database:', error));
         }
+        
+        return true;
     }
 
     // Unlock a chat
-    async unlockChat(conversationId) {
-        try {
-            if (window.isSupabaseEnabled && window.authManager?.currentUser) {
-                await window.supabase.rpc('unlock_conversation', {
-                    p_user_id: window.authManager.currentUser.id,
-                    p_conversation_id: conversationId
-                });
-            }
-            
-            this.lockedChats.delete(conversationId);
-            this.saveLockedChats();
-            this.updateChatLockUI(conversationId, false);
-        } catch (error) {
-            console.error('Error unlocking chat:', error);
+    unlockChat(conversationId) {
+        this.lockedChats.delete(conversationId);
+        this.saveLockedChats();
+        this.updateChatLockUI(conversationId, false);
+        
+        // Remove from database in background
+        if (window.isSupabaseEnabled && window.authManager?.currentUser) {
+            window.supabase.rpc('unlock_conversation', {
+                p_user_id: window.authManager.currentUser.id,
+                p_conversation_id: conversationId
+            }).catch(error => console.error('Error removing lock from database:', error));
         }
     }
 
