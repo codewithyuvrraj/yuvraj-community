@@ -71,6 +71,11 @@ class SimpleInstantChat {
         if (chatInputContainer) chatInputContainer.style.display = 'block';
         if (backBtn) backBtn.style.display = 'block';
         
+        // Push chat state to history to handle back button
+        if (this.currentConversation) {
+            history.pushState({ inChat: true, userId: this.currentConversation.userId }, '', '#chat');
+        }
+        
         setTimeout(() => {
             const messageInput = document.getElementById('messageInput');
             if (messageInput) messageInput.focus();

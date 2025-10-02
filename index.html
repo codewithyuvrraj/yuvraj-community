@@ -2043,6 +2043,14 @@
                     this.goBackToHomeFeed();
                 });
                 
+                // Handle browser back button
+                window.addEventListener('popstate', (e) => {
+                    if (window.chatManager && window.chatManager.currentConversation) {
+                        e.preventDefault();
+                        this.goBackToHomeFeed();
+                    }
+                });
+                
                 // Setup search button
                 document.getElementById('searchBtn').addEventListener('click', () => {
                     this.showSearchModal();
@@ -3752,6 +3760,11 @@
                 // Reset header
                 if (chatTitle) chatTitle.textContent = 'BusinessConnect';
                 if (chatStatus) chatStatus.innerHTML = '';
+                
+                // Reset URL to home state
+                if (window.location.hash) {
+                    history.replaceState(null, '', window.location.pathname);
+                }
                 
                 // Refresh home feed to show updated unread counts
                 this.loadHomeFeed();
