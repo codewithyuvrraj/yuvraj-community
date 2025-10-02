@@ -179,38 +179,58 @@ class ChatManager {
         const input = document.getElementById('messageInput');
         const text = input.value.trim();
         
-        if (!text || !this.currentConversation) return;
+        if (!text || !this.currentConversation) {
+            console.log('No text or conversation');
+            return;
+        }
+
+        console.log('Sending message:', text);
+        console.log('Current conversation:', this.currentConversation);
+        console.log('Supabase enabled:', this.isSupabaseEnabled);
+        console.log('Current user:', window.authManager.currentUser);
 
         try {
             const message = {
-                id: Date.now().toString(),
                 conversation_id: this.currentConversation.conversationId,
                 sender_id: window.authManager.currentUser.id,
                 text: text,
-                timestamp: new Date().toISOString(),
                 type: 'text'
             };
+
+            console.log('Message to insert:', message);
 
             // Clear input immediately
             input.value = '';
 
             // Add message to UI immediately
-            this.addMessageToUI(message);
+            this.addMessageToUI({
+                ...message,
+                id: Date.now().toString(),
+                timestamp: new Date().toISOString()
+            });
 
             // Save to database
             if (this.isSupabaseEnabled && this.supabase) {
-                const { error } = await this.supabase
+                console.log('Inserting to Supabase...');
+                const { data, error } = await this.supabase
                     .from('messages')
-                    .insert(message);
+                    .insert(message)
+                    .select();
                 
-                if (error) throw error;
+                if (error) {
+                    console.error('Supabase insert error:', error);
+                    throw error;
+                }
+                console.log('Message inserted successfully:', data);
+            } else {
+                console.log('Supabase not available, message only shown locally');
             }
 
             this.scrollToBottom();
 
         } catch (error) {
             console.error('Error sending message:', error);
-            window.authManager.showNotification('Failed to send message', 'error');
+            window.authManager.showNotification('Failed to send message: ' + error.message, 'error');
         }
     }
 
