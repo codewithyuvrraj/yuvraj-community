@@ -1741,7 +1741,7 @@
                     localStorage.setItem('businessconnect_current_user', JSON.stringify(this.currentUser));
                     this.setupPresenceTracking();
                     this.showNotification('Login successful!', 'success');
-                    setTimeout(() => this.showApp(), 500);
+                    setTimeout(async () => await this.showApp(), 500);
                 } catch (error) {
                     console.error("Login error:", error);
                     
@@ -1846,8 +1846,8 @@
                     }
 
                     // Show success and transition to app
-                    setTimeout(() => {
-                        this.showApp();
+                    setTimeout(async () => {
+                        await this.showApp();
                     }, 1000);
                     
                 } catch (error) {
@@ -1924,7 +1924,7 @@
                 document.getElementById('app-container').style.display = 'none';
             }
 
-            showApp() {
+            async showApp() {
                 document.getElementById('auth-container').style.display = 'none';
                 document.getElementById('app-container').style.display = 'flex';
                 // User info is now handled in modals
