@@ -287,8 +287,8 @@
             isSupabaseEnabled = false;
         }
 
-        // Clear old cache and load current user
-        localStorage.removeItem('businessconnect_all_users');
+        // Clear ALL cache
+        localStorage.clear();
         const savedUser = localStorage.getItem('businessconnect_current_user');
         if (savedUser) {
             currentUser = JSON.parse(savedUser);
@@ -328,7 +328,7 @@
                         .select('*')
                         .ilike('username', `%${query}%`)
                         .neq('id', currentUser?.id || '00000000-0000-0000-0000-000000000000')
-                        .gte('updated_at', '2025-01-01')
+                        .gte('updated_at', '2025-01-10')
                         .limit(20);
                     
                     if (error) throw error;
@@ -414,7 +414,7 @@
                         .from('profiles')
                         .select('*')
                         .neq('id', currentUser?.id || '00000000-0000-0000-0000-000000000000')
-                        .gte('updated_at', '2025-01-01')
+                        .gte('updated_at', '2025-01-10')
                         .limit(50);
                     
                     if (error) throw error;
