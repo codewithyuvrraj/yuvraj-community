@@ -1371,28 +1371,7 @@
             }
         }
 
-        /* Connection Status */
-        .connection-status {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            padding: 8px 16px;
-            background: #10B981;
-            color: white;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            z-index: 1000;
-            display: none;
-        }
 
-        .connection-status.offline {
-            background: #EF4444;
-        }
-
-        .connection-status.connecting {
-            background: #F59E0B;
-        }
         
         /* Notes and additional info styles */
         .auth-note {
@@ -1756,10 +1735,7 @@
         </div>
     </div>
 
-    <!-- Connection Status -->
-    <div id="connectionStatus" class="connection-status">
-        <i class="fas fa-wifi"></i> Connected
-    </div>
+
 
     <!-- File Upload Input -->
     <input type="file" id="hiddenFileInput" style="display: none;" multiple>
@@ -2131,14 +2107,8 @@
                 // Setup global user access
                 this.makeUsersGloballyAccessible();
                 
-                // Set user online status
-                this.setUserOnline();
-                
                 // Load home feed
                 this.loadHomeFeed();
-                
-                // Track online status
-                this.trackOnlineStatus();
                 
                 // Update notification badge
                 this.updateNotificationBadge();
@@ -2883,14 +2853,7 @@
                         localStorage.setItem('businessconnect_all_users', JSON.stringify(allUsers));
                         console.log(`✅ Connected! Cached ${allUsers.length} users for global access`);
                         
-                        // Update connection status
-                        const statusEl = document.getElementById('connectionStatus');
-                        if (statusEl) {
-                            statusEl.textContent = `Online - ${allUsers.length} users available`;
-                            statusEl.className = 'connection-status';
-                            statusEl.style.display = 'block';
-                            setTimeout(() => statusEl.style.display = 'none', 4000);
-                        }
+
                     } else {
                         throw error || new Error('No data returned');
                     }
@@ -2898,13 +2861,7 @@
                     console.error('❌ Connection failed:', error);
                     isSupabaseEnabled = false;
                     
-                    const statusEl = document.getElementById('connectionStatus');
-                    if (statusEl) {
-                        statusEl.textContent = 'Connection Failed - Using Offline Mode';
-                        statusEl.className = 'connection-status offline';
-                        statusEl.style.display = 'block';
-                        setTimeout(() => statusEl.style.display = 'none', 4000);
-                    }
+
                 }
             }
             
@@ -4265,68 +4222,13 @@
                 return '<div class="offline-indicator"></div>';
             }
 
-            async setUserOnline() {
-                if (!isSupabaseEnabled || !this.currentUser) return;
-                
-                try {
-                    await supabase
-                        .from('user_status')
-                        .upsert({ 
-                            user_id: this.currentUser.id,
-                            is_online: true,
-                            last_seen: new Date().toISOString(),
-                            updated_at: new Date().toISOString()
-                        });
-                } catch (error) {
-                    console.error('Error setting user online:', error);
-                }
-            }
+
             
-            async setUserOffline() {
-                if (!isSupabaseEnabled || !this.currentUser) return;
-                
-                try {
-                    await supabase
-                        .from('user_status')
-                        .upsert({ 
-                            user_id: this.currentUser.id,
-                            is_online: false,
-                            last_seen: new Date().toISOString(),
-                            updated_at: new Date().toISOString()
-                        });
-                } catch (error) {
-                    console.error('Error setting user offline:', error);
-                }
-            }
+
             
-            trackOnlineStatus() {
-                // Update online status every 30 seconds
-                setInterval(() => {
-                    this.setUserOnline();
-                }, 30000);
-                
-                // Set offline when page is closed
-                window.addEventListener('beforeunload', () => {
-                    this.setUserOffline();
-                });
-                
-                // Handle visibility change
-                document.addEventListener('visibilitychange', () => {
-                    if (document.hidden) {
-                        this.setUserOffline();
-                    } else {
-                        this.setUserOnline();
-                    }
-                });
-            }
+
             
-            isUserOnline(lastSeen) {
-                if (!lastSeen) return false;
-                const now = new Date();
-                const lastSeenDate = new Date(lastSeen);
-                const diffMinutes = (now - lastSeenDate) / (1000 * 60);
-                return diffMinutes < 2; // Online if seen within 2 minutes
-            }
+
             
             async updateNotificationBadge() {
                 if (!isSupabaseEnabled || !this.currentUser) return;
