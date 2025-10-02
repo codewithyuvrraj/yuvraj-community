@@ -10,8 +10,8 @@
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <!-- Registration Fix -->
     <script src="registration-fix.js"></script>
-    <!-- Simple Chat Manager -->
-    <script src="simple-chat-manager.js"></script>
+    <!-- Fixed Chat Manager -->
+    <script src="fixed-chat-manager.js"></script>
     <!-- Auth Debug -->
     <script src="auth-debug.js"></script>
     <!-- Debug Chat -->
@@ -3437,7 +3437,7 @@
                         .select('id')
                         .eq('conversation_id', conversationId)
                         .eq('sender_id', userId)
-                        .gt('timestamp', this.getLastReadTime(conversationId));
+                        .gt('created_at', this.getLastReadTime(conversationId));
                     
                     return data ? data.length : 0;
                 } catch (error) {
@@ -3454,7 +3454,7 @@
                         .from('messages')
                         .select('*')
                         .or(`sender_id.eq.${this.currentUser.id},conversation_id.like.%${this.currentUser.id}%`)
-                        .order('timestamp', { ascending: false });
+                        .order('created_at', { ascending: false });
                     
                     if (error) throw error;
                     
@@ -3535,7 +3535,7 @@
                         .select('*')
                         .neq('sender_id', this.currentUser.id) // Only messages NOT sent by current user
                         .like('conversation_id', `%${this.currentUser.id}%`) // Only conversations involving current user
-                        .order('timestamp', { ascending: false });
+                        .order('created_at', { ascending: false });
                     
                     if (error) throw error;
                     
@@ -3546,7 +3546,7 @@
                         const lastReadTime = this.getLastReadTime(conversationId);
                         
                         // Only include if message is newer than last read time
-                        if (new Date(message.timestamp) > new Date(lastReadTime)) {
+                        if (new Date(message.created_at) > new Date(lastReadTime)) {
                             if (!conversations.has(conversationId)) {
                                 const otherUserId = message.sender_id;
                                 const { data: otherUser } = await supabase
