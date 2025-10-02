@@ -2721,6 +2721,11 @@
                                         <i class="fas fa-share"></i> Share Profile
                                     </button>
                                 </div>
+                                <div style="display: flex; gap: 12px; justify-content: center; margin-top: 12px;">
+                                    <button class="btn" style="background: #ef4444; color: white;" onclick="window.authManager.confirmDeleteChatFromProfile('${user.id}', '${user.full_name || user.username}'); this.closest('.overlay').remove();">
+                                        <i class="fas fa-trash"></i> Delete Chat
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     `;
@@ -3972,6 +3977,37 @@
             }
             
             async executeDeleteChat(userId) {
+                const conversationId = [this.currentUser.id, userId].sort().join('_');
+                document.querySelector('.overlay').remove();
+                await this.deleteChatForMe(conversationId);
+            }
+            
+            confirmDeleteChatFromProfile(userId, userName) {
+                const modal = document.createElement('div');
+                modal.className = 'overlay';
+                modal.innerHTML = `
+                    <div class="settings-modal" style="max-width: 350px;">
+                        <div class="settings-header" style="background: #ef4444; color: white;">
+                            <h3><i class="fas fa-exclamation-triangle"></i> Delete Chat</h3>
+                        </div>
+                        <div class="settings-content" style="padding: 20px; text-align: center;">
+                            <p style="margin-bottom: 20px; color: #374151;">Delete entire conversation with <strong>${userName}</strong>?</p>
+                            <p style="margin-bottom: 20px; font-size: 14px; color: #6b7280;">This will permanently delete all messages in this conversation.</p>
+                            <div style="display: flex; gap: 12px;">
+                                <button class="btn" style="background: #ef4444; color: white; flex: 1;" onclick="window.authManager.executeDeleteChatFromProfile('${userId}')">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                                <button class="btn" style="background: #6b7280; color: white; flex: 1;" onclick="this.closest('.overlay').remove()">
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+            
+            async executeDeleteChatFromProfile(userId) {
                 const conversationId = [this.currentUser.id, userId].sort().join('_');
                 document.querySelector('.overlay').remove();
                 await this.deleteChatForMe(conversationId);
