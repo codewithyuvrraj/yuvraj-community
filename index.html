@@ -3680,10 +3680,10 @@
                         return;
                     }
                     
-                    // Search after 300ms delay
+                    // Search immediately for any character
                     searchTimeout = setTimeout(() => {
                         this.performRealTimeSearch(query);
-                    }, 300);
+                    }, 200);
                 });
                 
                 // Focus input
@@ -3693,15 +3693,13 @@
             async performRealTimeSearch(query) {
                 const resultsContainer = document.getElementById('modalSearchResults');
                 
-                // Show loading for longer queries
-                if (query.length > 2) {
-                    resultsContainer.innerHTML = `
-                        <div style="text-align: center; color: #6b7280; padding: 20px;">
-                            <i class="fas fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 12px;"></i>
-                            <p>Searching...</p>
-                        </div>
-                    `;
-                }
+                // Show loading for any query
+                resultsContainer.innerHTML = `
+                    <div style="text-align: center; color: #6b7280; padding: 20px;">
+                        <i class="fas fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 12px;"></i>
+                        <p>Searching...</p>
+                    </div>
+                `;
                 
                 try {
                     let users = [];
