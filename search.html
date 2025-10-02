@@ -287,8 +287,7 @@
             isSupabaseEnabled = false;
         }
 
-        // Clear ALL cache
-        localStorage.clear();
+        // Get current user from localStorage
         const savedUser = localStorage.getItem('businessconnect_current_user');
         if (savedUser) {
             currentUser = JSON.parse(savedUser);
