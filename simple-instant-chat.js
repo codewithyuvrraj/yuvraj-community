@@ -329,35 +329,29 @@ class SimpleInstantChat {
         }
     }
 
-    markConversationAsRead() {
+    async markConversationAsRead() {
         if (!this.currentConversation) return;
         
-        // Update last read timestamp for this conversation
         const conversationId = this.currentConversation.conversationId;
         
-        // Use AuthManager's method if available
-        if (window.authManager && window.authManager.markConversationAsRead) {
-            window.authManager.markConversationAsRead(conversationId);
-        } else {
-            // Fallback to local storage
-            const now = new Date().toISOString();
-            localStorage.setItem(`last_read_${conversationId}`, now);
-            
-            // Trigger home feed refresh if AuthManager is available
-            if (window.authManager && window.authManager.loadHomeFeed) {
-                setTimeout(() => {
-                    window.authManager.loadHomeFeed();
-                }, 200);
+        try {
+            if (window.supabase && window.authManager && window.authManager.currentUser) {
+                await window.supabase.rpc('update_message_read_status', {
+                    p_user_id: window.authManager.currentUser.id,
+                    p_conversation_id: conversationId
+                });
             }
+        } catch (error) {
+            console.error('Error marking conversation as read:', error);
         }
     }
 
-    cleanup() {
+    async cleanup() {
         this.stopPolling();
         
         // Mark conversation as read before cleanup
         if (this.currentConversation) {
-            this.markConversationAsRead();
+            await this.markConversationAsRead();
             
             // Force home feed refresh after cleanup
             setTimeout(() => {
