@@ -98,7 +98,15 @@ class SimpleInstantChat {
         try {
             const { data } = await window.supabase
                 .from('messages')
-                .select('*')
+                .select(`
+                    *,
+                    sender:profiles!messages_sender_id_fkey(
+                        id,
+                        full_name,
+                        username,
+                        profile_photo
+                    )
+                `)
                 .eq('conversation_id', this.currentConversation.conversationId)
                 .order('created_at', { ascending: true });
 
@@ -150,13 +158,11 @@ class SimpleInstantChat {
         const isOwn = msg.sender_id === window.authManager.currentUser.id;
         const time = new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
         
-        // Get user data and profile photo
-        const userData = isOwn ? 
-            window.authManager.currentUser :
-            this.currentConversation.user;
+        // Get sender data from the message (includes profile info from join)
+        const senderData = msg.sender || (isOwn ? window.authManager.currentUser : this.currentConversation.user);
         
-        const name = userData.full_name || userData.username;
-        const profilePhoto = userData.profile_photo;
+        const name = senderData.full_name || senderData.username;
+        const profilePhoto = senderData.profile_photo;
         
         // Create avatar HTML with profile photo or initials
         const avatarContent = profilePhoto ? 
@@ -279,7 +285,15 @@ class SimpleInstantChat {
             try {
                 const { data } = await window.supabase
                     .from('messages')
-                    .select('*')
+                    .select(`
+                        *,
+                        sender:profiles!messages_sender_id_fkey(
+                            id,
+                            full_name,
+                            username,
+                            profile_photo
+                        )
+                    `)
                     .eq('conversation_id', this.currentConversation.conversationId)
                     .order('created_at', { ascending: false })
                     .limit(5);
