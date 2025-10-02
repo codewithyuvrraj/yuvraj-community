@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search - BusinessConnect</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .search-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .search-header {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .search-header h1 {
+            color: #1e40af;
+            margin-bottom: 8px;
+            font-size: 28px;
+        }
+
+        .search-box {
+            position: relative;
+            margin: 20px 0;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 16px 20px;
+            padding-right: 120px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #1e40af;
+            box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
+        }
+
+        .search-actions {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background: #1e40af;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1d4ed8;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .search-results {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .user-card {
+            display: flex;
+            align-items: center;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+
+        .user-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .user-avatar {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #1e40af, #06b6d4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 24px;
+            margin-right: 20px;
+            overflow: hidden;
+        }
+
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+        }
+
+        .user-info {
+            flex: 1;
+        }
+
+        .user-name {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+
+        .user-username {
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+
+        .user-details {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 8px;
+        }
+
+        .user-detail {
+            font-size: 14px;
+            color: #1e40af;
+            font-weight: 500;
+        }
+
+        .user-bio {
+            color: #4b5563;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .user-actions {
+            display: flex;
+            gap: 12px;
+            flex-direction: column;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #1e40af;
+            border: none;
+            padding: 12px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .back-btn:hover {
+            background: white;
+            transform: scale(1.1);
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b7280;
+        }
+
+        .no-results i {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b7280;
+        }
+
+        .loading i {
+            font-size: 32px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <button class="back-btn" onclick="window.location.href='businessconnect.html'">
+        <i class="fas fa-arrow-left"></i>
+    </button>
+
+    <div class="search-container">
+        <div class="search-header">
+            <h1><i class="fas fa-search"></i> Find Professionals</h1>
+            <p>Connect with industry professionals and expand your network</p>
+            
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Search by name, username, or email...">
+                <div class="search-actions">
+                    <button class="btn btn-secondary" id="refreshBtn" onclick="refreshSearch()">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                    <button class="btn btn-primary" onclick="performSearch()">
+                        <i class="fas fa-search"></i> Search
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="search-results">
+            <div id="searchResults">
+                <div class="no-results">
+                    <i class="fas fa-search"></i>
+                    <h3>Start Your Search</h3>
+                    <p>Enter a name, username, or email to find professionals</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Supabase Configuration
+        const SUPABASE_URL = 'https://prxkbtexbgashpcmsjcp.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByeGtidGV4Ymdhc2hwY21zamNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzNjM4MjgsImV4cCI6MjA3NDkzOTgyOH0.rp2kWk6AQUAglx_-jeOqRjASdqXYOeI4FCtuxITRsws';
+
+        let supabase;
+        let isSupabaseEnabled = false;
+        let currentUser = null;
+
+        try {
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            isSupabaseEnabled = true;
+        } catch (error) {
+            console.log('Supabase initialization error:', error);
+        }
+
+        // Load current user
+        const savedUser = localStorage.getItem('businessconnect_current_user');
+        if (savedUser) {
+            currentUser = JSON.parse(savedUser);
+        }
+
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+
+        async function performSearch() {
+            const query = document.getElementById('searchInput').value.trim();
+            const resultsContainer = document.getElementById('searchResults');
+            
+            if (!query) {
+                resultsContainer.innerHTML = `
+                    <div class="no-results">
+                        <i class="fas fa-search"></i>
+                        <h3>Start Your Search</h3>
+                        <p>Enter a name, username, or email to find professionals</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Show loading
+            resultsContainer.innerHTML = `
+                <div class="loading">
+                    <i class="fas fa-spinner"></i>
+                    <h3>Searching...</h3>
+                    <p>Finding professionals for you</p>
+                </div>
+            `;
+
+            try {
+                let users = [];
+                
+                if (isSupabaseEnabled) {
+                    const { data, error } = await supabase
+                        .from('profiles')
+                        .select('*')
+                        .or(`username.ilike.%${query}%,email.ilike.%${query}%,full_name.ilike.%${query}%`)
+                        .is('deleted_at', null)
+                        .limit(20);
+                    
+                    if (error) throw error;
+                    users = data || [];
+                    
+                    // Filter out current user
+                    if (currentUser) {
+                        users = users.filter(user => user.id !== currentUser.id);
+                    }
+                }
+
+                displayResults(users);
+            } catch (error) {
+                console.error('Search error:', error);
+                resultsContainer.innerHTML = `
+                    <div class="no-results">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h3>Search Error</h3>
+                        <p>Unable to search at this time. Please try again.</p>
+                    </div>
+                `;
+            }
+        }
+
+        function displayResults(users) {
+            const resultsContainer = document.getElementById('searchResults');
+            
+            if (!users || users.length === 0) {
+                resultsContainer.innerHTML = `
+                    <div class="no-results">
+                        <i class="fas fa-user-slash"></i>
+                        <h3>No Results Found</h3>
+                        <p>Try searching with different keywords</p>
+                    </div>
+                `;
+                return;
+            }
+
+            resultsContainer.innerHTML = users.map(user => `
+                <div class="user-card">
+                    <div class="user-avatar">
+                        ${user.profile_photo ? 
+                            `<img src="${user.profile_photo}" alt="${user.full_name || user.username}">` :
+                            (user.full_name || user.username).charAt(0).toUpperCase()
+                        }
+                    </div>
+                    <div class="user-info">
+                        <div class="user-name">${user.full_name || user.username}</div>
+                        <div class="user-username">@${user.username}</div>
+                        <div class="user-details">
+                            ${user.job_title ? `<span class="user-detail"><i class="fas fa-briefcase"></i> ${user.job_title}</span>` : ''}
+                            ${user.company ? `<span class="user-detail"><i class="fas fa-building"></i> ${user.company}</span>` : ''}
+                            ${user.industry ? `<span class="user-detail"><i class="fas fa-industry"></i> ${user.industry}</span>` : ''}
+                        </div>
+                        ${user.bio ? `<div class="user-bio">${user.bio}</div>` : ''}
+                    </div>
+                    <div class="user-actions">
+                        <button class="btn btn-primary" onclick="startChat('${user.id}')">
+                            <i class="fas fa-comment"></i> Message
+                        </button>
+                        <button class="btn btn-secondary" onclick="followUser('${user.id}')">
+                            <i class="fas fa-user-plus"></i> Follow
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function refreshSearch() {
+            const refreshBtn = document.getElementById('refreshBtn');
+            const originalContent = refreshBtn.innerHTML;
+            
+            refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing';
+            refreshBtn.disabled = true;
+            
+            // Clear search and reset
+            document.getElementById('searchInput').value = '';
+            document.getElementById('searchResults').innerHTML = `
+                <div class="no-results">
+                    <i class="fas fa-search"></i>
+                    <h3>Start Your Search</h3>
+                    <p>Enter a name, username, or email to find professionals</p>
+                </div>
+            `;
+            
+            setTimeout(() => {
+                refreshBtn.innerHTML = originalContent;
+                refreshBtn.disabled = false;
+            }, 1000);
+        }
+
+        async function startChat(userId) {
+            if (!currentUser) {
+                alert('Please login first');
+                return;
+            }
+            
+            // Store the user ID to start chat with
+            localStorage.setItem('start_chat_with', userId);
+            
+            // Redirect back to main app
+            window.location.href = 'businessconnect.html';
+        }
+
+        async function followUser(userId) {
+            if (!currentUser) {
+                alert('Please login first');
+                return;
+            }
+
+            try {
+                if (isSupabaseEnabled) {
+                    const { error } = await supabase
+                        .from('follows')
+                        .insert({
+                            follower_id: currentUser.id,
+                            following_id: userId
+                        });
+                    
+                    if (error) {
+                        if (error.code === '23505') {
+                            alert('You are already following this user');
+                        } else {
+                            throw error;
+                        }
+                        return;
+                    }
+                }
+                
+                alert('User followed successfully!');
+                
+                // Notify parent window if opened from main app
+                if (window.opener) {
+                    window.opener.postMessage('followChanged', '*');
+                }
+                
+                // Also trigger storage event for same-window detection
+                localStorage.setItem('feed_refresh', Date.now().toString());
+                
+            } catch (error) {
+                console.error('Follow error:', error);
+                alert('Failed to follow user');
+            }
+        }
+
+        // Auto-focus search input
+        document.getElementById('searchInput').focus();
+    </script>
+</body>
+</html>
