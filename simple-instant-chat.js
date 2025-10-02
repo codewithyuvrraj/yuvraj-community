@@ -342,6 +342,13 @@ class SimpleInstantChat {
             // Fallback to local storage
             const now = new Date().toISOString();
             localStorage.setItem(`last_read_${conversationId}`, now);
+            
+            // Trigger home feed refresh if AuthManager is available
+            if (window.authManager && window.authManager.loadHomeFeed) {
+                setTimeout(() => {
+                    window.authManager.loadHomeFeed();
+                }, 200);
+            }
         }
     }
 
@@ -351,6 +358,13 @@ class SimpleInstantChat {
         // Mark conversation as read before cleanup
         if (this.currentConversation) {
             this.markConversationAsRead();
+            
+            // Force home feed refresh after cleanup
+            setTimeout(() => {
+                if (window.authManager && window.authManager.loadHomeFeed) {
+                    window.authManager.loadHomeFeed();
+                }
+            }, 300);
         }
         
         this.currentConversation = null;
