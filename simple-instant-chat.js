@@ -88,12 +88,26 @@ class SimpleInstantChat {
     updateHeader(user) {
         const chatTitle = document.getElementById('chatTitle');
         const chatStatus = document.getElementById('chatStatus');
+        const chatOptionsBtn = document.getElementById('chatOptionsBtn');
         
-        if (chatTitle) chatTitle.textContent = user.full_name || user.username;
+        if (chatTitle) {
+            chatTitle.textContent = user.full_name || user.username;
+            chatTitle.style.cursor = 'pointer';
+            chatTitle.onclick = () => {
+                if (window.authManager) {
+                    window.authManager.showChatOptions(user.id, user.full_name || user.username);
+                }
+            };
+        }
+        
         if (chatStatus && window.authManager) {
             const statusColor = window.authManager.getUserStatusColor();
             const statusText = window.authManager.getUserStatusText();
             chatStatus.innerHTML = `<i class="fas fa-circle" style="color: ${statusColor}; font-size: 8px; margin-right: 4px;"></i>${statusText}`;
+        }
+        
+        if (chatOptionsBtn) {
+            chatOptionsBtn.style.display = 'block';
         }
     }
 
@@ -367,8 +381,19 @@ class SimpleInstantChat {
         
         this.currentConversation = null;
         
-        // Hide back button
+        // Reset header and hide buttons
+        const chatTitle = document.getElementById('chatTitle');
+        const chatStatus = document.getElementById('chatStatus');
+        const chatOptionsBtn = document.getElementById('chatOptionsBtn');
         const backBtn = document.getElementById('backBtn');
+        
+        if (chatTitle) {
+            chatTitle.textContent = 'BusinessConnect';
+            chatTitle.style.cursor = 'default';
+            chatTitle.onclick = null;
+        }
+        if (chatStatus) chatStatus.innerHTML = '';
+        if (chatOptionsBtn) chatOptionsBtn.style.display = 'none';
         if (backBtn) backBtn.style.display = 'none';
     }
 }

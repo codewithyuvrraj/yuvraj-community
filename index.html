@@ -1533,6 +1533,9 @@
                     <div class="chat-info">
                         <h3 id="chatTitle">BusinessConnect</h3>
                         <span id="chatStatus" class="status-indicator"></span>
+                        <button id="chatOptionsBtn" class="btn btn-icon" title="Chat Options" style="display: none; margin-left: 8px;" onclick="window.authManager.showChatOptionsFromHeader()">
+                            <i class="fas fa-ellipsis-v"></i>
+                        </button>
                     </div>
                     <div class="chat-actions">
                         <div id="influencerButtons" style="display: none; gap: 8px;">
@@ -3913,8 +3916,105 @@
                 return '#22c55e';
             }
             
+            showChatOptions(userId, userName) {
+                const modal = document.createElement('div');
+                modal.className = 'overlay';
+                modal.innerHTML = `
+                    <div class="settings-modal" style="max-width: 300px;">
+                        <div class="settings-header" style="background: #ef4444; color: white;">
+                            <h3><i class="fas fa-user"></i> ${userName}</h3>
+                            <button class="close-btn" onclick="this.closest('.overlay').remove()" style="color: white;">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="settings-content" style="padding: 20px;">
+                            <button class="btn" style="background: #ef4444; color: white; width: 100%; margin-bottom: 12px;" onclick="window.authManager.confirmDeleteChat('${userId}', '${userName}')">
+                                <i class="fas fa-trash"></i> Delete Chat
+                            </button>
+                            <button class="btn" style="background: #6b7280; color: white; width: 100%;" onclick="this.closest('.overlay').remove()">
+                                <i class="fas fa-times"></i> Cancel
+                            </button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+            
+            confirmDeleteChat(userId, userName) {
+                const modal = document.createElement('div');
+                modal.className = 'overlay';
+                modal.innerHTML = `
+                    <div class="settings-modal" style="max-width: 350px;">
+                        <div class="settings-header" style="background: #ef4444; color: white;">
+                            <h3><i class="fas fa-exclamation-triangle"></i> Delete Chat</h3>
+                        </div>
+                        <div class="settings-content" style="padding: 20px; text-align: center;">
+                            <p style="margin-bottom: 20px; color: #374151;">Delete chat with <strong>${userName}</strong>?</p>
+                            <p style="margin-bottom: 20px; font-size: 14px; color: #6b7280;">This will only delete the chat for you. The other person will still have the conversation.</p>
+                            <div style="display: flex; gap: 12px;">
+                                <button class="btn" style="background: #ef4444; color: white; flex: 1;" onclick="window.authManager.executeDeleteChat('${userId}')">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                                <button class="btn" style="background: #6b7280; color: white; flex: 1;" onclick="this.closest('.overlay').remove()">
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                
+                // Remove previous modal
+                const prevModal = document.querySelectorAll('.overlay');
+                if (prevModal.length > 1) {
+                    prevModal[0].remove();
+                }
+            }
+            
+            async executeDeleteChat(userId) {
+                const conversationId = [this.currentUser.id, userId].sort().join('_');
+                document.querySelector('.overlay').remove();
+                await this.deleteChatForMe(conversationId);
+            }
+            
+            showChatOptionsFromHeader() {
+                if (window.chatManager && window.chatManager.currentConversation) {
+                    const user = window.chatManager.currentConversation.user;
+                    this.showChatOptions(user.id, user.full_name || user.username);
+                }
+            }
+            
             getUserStatusText() {
                 return 'Active';
+            }
+            
+            async deleteChatForMe(conversationId) {
+                if (!isSupabaseEnabled || !this.currentUser) return;
+                
+                try {
+                    // Create or update deleted_chats record for this user
+                    const { error } = await supabase
+                        .from('deleted_chats')
+                        .upsert({
+                            user_id: this.currentUser.id,
+                            conversation_id: conversationId,
+                            deleted_at: new Date().toISOString()
+                        });
+                    
+                    if (error) throw error;
+                    
+                    this.showNotification('Chat deleted for you', 'success');
+                    
+                    // Go back to home feed
+                    if (window.chatManager) {
+                        window.chatManager.cleanup();
+                    }
+                    this.goBackToHomeFeed();
+                    
+                } catch (error) {
+                    console.error('Error deleting chat:', error);
+                    this.showNotification('Failed to delete chat', 'error');
+                }
             }
 
 
