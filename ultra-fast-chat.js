@@ -3,13 +3,17 @@ class UltraFastChat {
     constructor() {
         this.currentConversation = null;
         this.realtimeChannel = null;
-        this.messageCache = new Map();
     }
 
     async initialize() {
         console.log('Ultra Fast Chat initializing...');
         this.setupEventListeners();
-        this.setupInstantRealtime();
+        
+        // Wait for Supabase to be ready
+        setTimeout(() => {
+            this.setupInstantRealtime();
+        }, 1000);
+        
         console.log('Ultra Fast Chat ready');
     }
 
@@ -29,18 +33,28 @@ class UltraFastChat {
     }
 
     setupInstantRealtime() {
-        if (!window.supabase) return;
+        if (!window.supabase || !window.supabase.channel) {
+            console.log('Supabase not ready, retrying...');
+            setTimeout(() => this.setupInstantRealtime(), 1000);
+            return;
+        }
 
-        this.realtimeChannel = window.supabase
-            .channel('ultra-fast')
-            .on('postgres_changes', {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'messages'
-            }, (payload) => {
-                this.handleInstantMessage(payload.new);
-            })
-            .subscribe();
+        try {
+            this.realtimeChannel = window.supabase
+                .channel('ultra-fast')
+                .on('postgres_changes', {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'messages'
+                }, (payload) => {
+                    this.handleInstantMessage(payload.new);
+                })
+                .subscribe();
+            
+            console.log('Realtime enabled');
+        } catch (error) {
+            console.log('Realtime setup failed:', error);
+        }
     }
 
     handleInstantMessage(message) {
@@ -53,7 +67,7 @@ class UltraFastChat {
     }
 
     async startConversation(userId) {
-        if (!window.authManager?.currentUser) return;
+        if (!window.authManager || !window.authManager.currentUser) return;
 
         try {
             const { data: user } = await window.supabase
@@ -77,20 +91,34 @@ class UltraFastChat {
     }
 
     showChat() {
-        document.getElementById('homeFeed').style.display = 'none';
-        document.getElementById('businessTools').style.display = 'none';
-        document.getElementById('chatMessages').style.display = 'flex';
-        document.getElementById('chatInputContainer').style.display = 'block';
-        document.getElementById('messageInput').focus();
+        const homeFeed = document.getElementById('homeFeed');
+        const businessTools = document.getElementById('businessTools');
+        const chatMessages = document.getElementById('chatMessages');
+        const chatInputContainer = document.getElementById('chatInputContainer');
+        
+        if (homeFeed) homeFeed.style.display = 'none';
+        if (businessTools) businessTools.style.display = 'none';
+        if (chatMessages) chatMessages.style.display = 'flex';
+        if (chatInputContainer) chatInputContainer.style.display = 'block';
+        
+        setTimeout(() => {
+            const messageInput = document.getElementById('messageInput');
+            if (messageInput) messageInput.focus();
+        }, 100);
     }
 
     updateHeader(user) {
-        document.getElementById('chatTitle').textContent = user.full_name || user.username;
-        document.getElementById('chatStatus').innerHTML = '<i class="fas fa-circle" style="color: #10b981; font-size: 8px; margin-right: 4px;"></i>Online';
+        const chatTitle = document.getElementById('chatTitle');
+        const chatStatus = document.getElementById('chatStatus');
+        
+        if (chatTitle) chatTitle.textContent = user.full_name || user.username;
+        if (chatStatus) chatStatus.innerHTML = '<i class="fas fa-circle" style="color: #10b981; font-size: 8px; margin-right: 4px;"></i>Online';
     }
 
     async loadInstant() {
         const container = document.getElementById('chatMessages');
+        if (!container) return;
+        
         container.innerHTML = '<div style="text-align: center; padding: 20px;">Loading...</div>';
 
         try {
@@ -108,9 +136,10 @@ class UltraFastChat {
 
     displayAll(messages) {
         const container = document.getElementById('chatMessages');
+        if (!container) return;
         
         if (messages.length === 0) {
-            container.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">Start chatting with ' + this.currentConversation.user.full_name + '</div>';
+            container.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">Start chatting with ' + (this.currentConversation.user.full_name || this.currentConversation.user.username) + '</div>';
             return;
         }
 
@@ -126,7 +155,7 @@ class UltraFastChat {
             (this.currentConversation.user.full_name || this.currentConversation.user.username);
         
         return '<div class="message ' + (isOwn ? 'own' : '') + '" data-message-id="' + msg.id + '">' +
-               '<div class="message-avatar">' + name.charAt(0).toUpperCase() + '</div>' +
+               '<div class="message-avatar">' + (name || 'U').charAt(0).toUpperCase() + '</div>' +
                '<div class="message-content">' +
                '<div class="message-text">' + this.escape(msg.text) + '</div>' +
                '<div class="message-time">' + time + '</div>' +
@@ -139,6 +168,8 @@ class UltraFastChat {
 
     async sendInstant() {
         const input = document.getElementById('messageInput');
+        if (!input) return;
+        
         const text = input.value.trim();
         if (!text || !this.currentConversation) return;
 
@@ -158,24 +189,28 @@ class UltraFastChat {
         this.addToUI(msg);
 
         // Send to database (fire and forget for speed)
-        window.supabase
-            .from('messages')
-            .insert({
-                conversation_id: this.currentConversation.conversationId,
-                sender_id: window.authManager.currentUser.id,
-                text: text
-            })
-            .then(({ data, error }) => {
-                if (!error && data) {
-                    // Update temp message with real ID
-                    const element = document.querySelector('[data-message-id="' + msg.id + '"]');
-                    if (element) element.setAttribute('data-message-id', data[0].id);
-                }
-            });
+        if (window.supabase) {
+            window.supabase
+                .from('messages')
+                .insert({
+                    conversation_id: this.currentConversation.conversationId,
+                    sender_id: window.authManager.currentUser.id,
+                    text: text
+                })
+                .select()
+                .then(({ data, error }) => {
+                    if (!error && data && data[0]) {
+                        // Update temp message with real ID
+                        const element = document.querySelector('[data-message-id="' + msg.id + '"]');
+                        if (element) element.setAttribute('data-message-id', data[0].id);
+                    }
+                });
+        }
     }
 
     addToUI(msg) {
         const container = document.getElementById('chatMessages');
+        if (!container) return;
         
         // Remove welcome message
         if (container.innerHTML.includes('Start chatting')) {
@@ -198,10 +233,19 @@ class UltraFastChat {
 }
 
 // Replace chat manager
-if (window.chatManager?.cleanup) window.chatManager.cleanup();
+if (window.chatManager && window.chatManager.cleanup) {
+    window.chatManager.cleanup();
+}
+
 window.chatManager = new UltraFastChat();
 
-// Initialize immediately
-window.chatManager.initialize();
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(() => window.chatManager.initialize(), 500);
+    });
+} else {
+    setTimeout(() => window.chatManager.initialize(), 500);
+}
 
 console.log('Ultra Fast Chat loaded');
