@@ -9,6 +9,7 @@ class ChatManager {
     initialize() {
         if (this.isInitialized) return;
         this.setupEventListeners();
+        this.setupRealtimeListeners();
         this.isInitialized = true;
         console.log('ChatManager initialized');
     }
@@ -230,6 +231,29 @@ class ChatManager {
 
     getConversationId(userId1, userId2) {
         return [userId1, userId2].sort().join('_');
+    }
+
+    setupRealtimeListeners() {
+        if (!window.isSupabaseEnabled || !window.supabase) return;
+
+        window.supabase
+            .channel('messages')
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'messages'
+            }, (payload) => {
+                const message = payload.new;
+                
+                // Only show if it's for current conversation and not from current user
+                if (this.currentConversation && 
+                    message.conversation_id === this.currentConversation.conversationId &&
+                    message.sender_id !== window.authManager.currentUser.id) {
+                    this.addMessageToUI(message);
+                    this.scrollToBottom();
+                }
+            })
+            .subscribe();
     }
 
     async handleFileUpload(file) {
