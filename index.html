@@ -724,40 +724,7 @@
             border-radius: 50%;
         }
 
-        .online-indicator {
-            position: absolute;
-            bottom: 2px;
-            right: 2px;
-            width: 16px;
-            height: 16px;
-            background: #22c55e;
-            border: 3px solid white;
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-        
-        .offline-indicator {
-            position: absolute;
-            bottom: 2px;
-            right: 2px;
-            width: 16px;
-            height: 16px;
-            background: #ef4444;
-            border: 3px solid white;
-            border-radius: 50%;
-        }
-        
-        .active-indicator {
-            position: absolute;
-            bottom: 2px;
-            right: 2px;
-            width: 16px;
-            height: 16px;
-            background: #f59e0b;
-            border: 3px solid white;
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
+
 
         .unread-badge {
             position: absolute;
@@ -1416,20 +1383,7 @@
             75% { transform: translateX(2px); }
         }
 
-        /* Group Online Status */
-        .has-online-members .group-icon::after {
-            content: '';
-            position: absolute;
-            top: -2px;
-            right: -2px;
-            width: 12px;
-            height: 12px;
-            background-color: #4CAF50;
-            border: 2px solid white;
-            border-radius: 50%;
-            opacity: 1;
-            z-index: 10;
-        }
+
         
         /* Responsive */
         @media (max-width: 768px) {
@@ -1786,8 +1740,8 @@
             constructor() {
                 this.currentUser = null;
                 this.users = JSON.parse(localStorage.getItem('businessconnect_users') || '[]');
-                this.onlineUsers = new Set();
-                this.presenceChannel = null;
+
+
                 this.currentGroupsData = [];
                 this.initializeAuth();
             }
@@ -1852,10 +1806,7 @@
                         this.currentUser = profile;
                         console.log('User profile loaded:', this.currentUser);
                         
-                        // Set user online
-                        if (window.presenceManager) {
-                            await window.presenceManager.setOnline(this.currentUser.id);
-                        }
+
                     } else {
                         console.log('Using local authentication fallback');
                         
@@ -1863,7 +1814,7 @@
                         const user = this.users.find(u => u.email === email && u.password === password);
                         if (!user) {
                             console.error('Invalid credentials in local storage');
-                            throw new Error('Invalid credentials (offline mode)');
+                            throw new Error('Invalid credentials');
                         }
                         this.currentUser = user;
                     }
@@ -1940,7 +1891,7 @@
                         // Store user data locally as backup
                         localStorage.setItem('businessconnect_current_user', JSON.stringify(this.currentUser));
                         
-                        // Add to local users array for offline access
+                        // Add to local users array
                         const localUsers = JSON.parse(localStorage.getItem('businessconnect_users') || '[]');
                         const existingIndex = localUsers.findIndex(u => u.id === this.currentUser.id);
                         if (existingIndex >= 0) {
@@ -1955,7 +1906,7 @@
                         
                         // Local fallback
                         if (this.users.find(u => u.email === email)) {
-                            throw new Error('Email already exists (offline mode)');
+                            throw new Error('Email already exists');
                         }
 
                         const newUser = {
@@ -1964,7 +1915,7 @@
                             email,
                             password, // only stored locally
                             full_name: fullName,
-                            status: 'online',
+
                             joined_at: new Date().toISOString()
                         };
 
@@ -1972,7 +1923,7 @@
                         localStorage.setItem('businessconnect_users', JSON.stringify(this.users));
                         this.currentUser = newUser;
                         localStorage.setItem('businessconnect_current_user', JSON.stringify(this.currentUser));
-                        this.showNotification('Account created successfully (offline mode)!', 'success');
+                        this.showNotification('Account created successfully!', 'success');
                     }
 
                     // Show success and transition to app
@@ -2034,9 +1985,7 @@
             async logout() {
                 try {
                     if (isSupabaseEnabled && this.currentUser) {
-                        if (window.presenceManager) {
-                            await window.presenceManager.setOffline(this.currentUser.id);
-                        }
+
                         await supabase.auth.signOut();
                     }
                 } catch (error) {
@@ -2600,13 +2549,7 @@
                     const userIds = followsResult.data.map(f => f.following_id);
                     const { data: users, error: usersError } = await supabase
                         .from('profiles')
-                        .select(`
-                            *,
-                            user_status(
-                                is_online,
-                                last_seen
-                            )
-                        `)
+.select('*')
                         .in('id', userIds);
                     
                     if (usersError) throw usersError;
@@ -2630,7 +2573,7 @@
                                         `<img src="${user.profile_photo}">` :
                                         (user.full_name || user.username).charAt(0).toUpperCase()
                                     }
-                                    ${this.getUserStatusIndicator(user.user_status?.[0])}
+
                                     ${unreadCount > 0 ? `<div class="unread-badge">${unreadCount}</div>` : ''}
                                 </div>
                                 <div class="followed-user-info">
@@ -2638,11 +2581,7 @@
                                     ${user.job_title ? `<div class="followed-user-job"><i class="fas fa-briefcase"></i> ${user.job_title}</div>` : ''}
                                     ${user.company ? `<div class="followed-user-company">at ${user.company}</div>` : ''}
                                     ${user.bio ? `<div class="followed-user-bio">${user.bio}</div>` : ''}
-                                    <div class="followed-user-status">
-                                        <i class="fas fa-circle" style="color: ${this.getUserStatusColor(user.user_status?.[0])}"></i> 
-                                        ${this.getUserStatusText(user.user_status?.[0])} 
-                                        ${unreadCount > 0 ? `• ${unreadCount} unread` : ''}
-                                    </div>
+                                    ${unreadCount > 0 ? `<div class="followed-user-status">• ${unreadCount} unread messages</div>` : ''}
                                 </div>
                                 <div class="action-buttons">
                                     <button class="message-btn" onclick="window.chatManager.startConversation('${user.id}')">
@@ -3127,7 +3066,7 @@
 
             
             async showAccountStatus() {
-                let onlineUsers = 0;
+
                 let totalUsers = 0;
                 let followsCount = 0;
                 let messagesCount = 0;
@@ -3135,15 +3074,12 @@
                 
                 if (isSupabaseEnabled) {
                     try {
-                        const [onlineResult, usersResult, followsResult, messagesResult, viewsResult] = await Promise.all([
-                            supabase.from('user_status').select('user_id').eq('is_online', true),
+                        const [usersResult, followsResult, messagesResult, viewsResult] = await Promise.all([
                             supabase.from('profiles').select('id'),
                             supabase.from('follows').select('following_id').eq('follower_id', this.currentUser.id),
                             supabase.from('messages').select('id').eq('sender_id', this.currentUser.id),
                             supabase.rpc('get_profile_view_stats', { user_id: this.currentUser.id })
                         ]);
-                        
-                        onlineUsers = onlineResult.data?.length || 0;
                         totalUsers = usersResult.data?.length || 0;
                         followsCount = followsResult.data?.length || 0;
                         messagesCount = messagesResult.data?.length || 0;
@@ -3185,10 +3121,7 @@
                             <div style="background: #ecfdf5; padding: 20px; border-radius: 12px; margin-bottom: 20px; border-left: 4px solid #10b981;">
                                 <h4 style="margin-bottom: 16px; color: #374151;"><i class="fas fa-users"></i> Real-Time Network</h4>
                                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 12px;">
-                                    <div style="background: white; padding: 12px; border-radius: 8px; text-align: center;">
-                                        <div style="font-size: 20px; font-weight: 700; color: #10b981;">${onlineUsers}</div>
-                                        <div style="font-size: 11px; color: #6b7280;">Online Now</div>
-                                    </div>
+
                                     <div style="background: white; padding: 12px; border-radius: 8px; text-align: center;">
                                         <div style="font-size: 20px; font-weight: 700; color: #3b82f6;">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
                                         <div style="font-size: 11px; color: #6b7280;">Current Time</div>
@@ -3781,65 +3714,11 @@
                 }, 100);
             }
             
-            setupPresenceTracking() {
-                if (!isSupabaseEnabled || !this.currentUser) return;
-                
-                this.presenceChannel = supabase.channel('online-users')
-                    .on('presence', { event: 'sync' }, () => {
-                        const state = this.presenceChannel.presenceState();
-                        this.onlineUsers.clear();
-                        Object.keys(state).forEach(userId => {
-                            this.onlineUsers.add(userId);
-                        });
-                        this.updateGroupOnlineStatus();
-                    })
-                    .on('presence', { event: 'join' }, ({ key }) => {
-                        this.onlineUsers.add(key);
-                        this.updateGroupOnlineStatus();
-                    })
-                    .on('presence', { event: 'leave' }, ({ key }) => {
-                        this.onlineUsers.delete(key);
-                        this.updateGroupOnlineStatus();
-                    })
-                    .subscribe(async (status) => {
-                        if (status === 'SUBSCRIBED') {
-                            await this.presenceChannel.track({
-                                user_id: this.currentUser.id,
-                                online_at: new Date().toISOString()
-                            });
-                        }
-                    });
-            }
+
             
-            cleanupPresenceTracking() {
-                if (this.presenceChannel) {
-                    this.presenceChannel.unsubscribe();
-                    this.presenceChannel = null;
-                }
-                this.onlineUsers.clear();
-            }
+
             
-            async updateGroupOnlineStatus() {
-                if (!isSupabaseEnabled || !this.currentUser) return;
-                
-                try {
-                    const { data: groupsWithStatus } = await supabase
-                        .rpc('get_user_groups_with_online_status', { user_id_param: this.currentUser.id });
-                    
-                    document.querySelectorAll('[data-group-id]').forEach(groupItem => {
-                        const groupId = groupItem.dataset.groupId;
-                        const groupStatus = groupsWithStatus?.find(g => g.group_id === groupId);
-                        
-                        if (groupStatus && groupStatus.has_online_members) {
-                            groupItem.classList.add('has-online-members');
-                        } else {
-                            groupItem.classList.remove('has-online-members');
-                        }
-                    });
-                } catch (error) {
-                    console.error('Error updating group online status:', error);
-                }
-            }
+
             
             async showJoinedGroups() {
                 let groups = [];
@@ -3890,7 +3769,7 @@
                 `;
                 document.body.appendChild(modal);
                 
-                setTimeout(() => this.updateGroupOnlineStatus(), 100);
+
             }
             
             async showJoinedChannels() {
@@ -4174,53 +4053,7 @@
                 }
             }
 
-            getUserStatusColor(userStatus) {
-                if (!userStatus) return '#ef4444'; // Red for offline
-                
-                if (userStatus.is_online) {
-                    return '#22c55e'; // Green for online
-                }
-                
-                // Check if user was active in last 30 minutes
-                const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
-                if (userStatus.last_seen && new Date(userStatus.last_seen) > thirtyMinutesAgo) {
-                    return '#f59e0b'; // Orange for recently active
-                }
-                
-                return '#ef4444'; // Red for offline
-            }
-            
-            getUserStatusText(userStatus) {
-                if (!userStatus) return 'Offline';
-                
-                if (userStatus.is_online) {
-                    return 'Online';
-                }
-                
-                // Check if user was active in last 30 minutes
-                const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
-                if (userStatus.last_seen && new Date(userStatus.last_seen) > thirtyMinutesAgo) {
-                    return 'Active';
-                }
-                
-                return 'Offline';
-            }
-            
-            getUserStatusIndicator(userStatus) {
-                if (!userStatus) return '<div class="offline-indicator"></div>';
-                
-                if (userStatus.is_online) {
-                    return '<div class="online-indicator"></div>';
-                }
-                
-                // Check if user was active in last 30 minutes
-                const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
-                if (userStatus.last_seen && new Date(userStatus.last_seen) > thirtyMinutesAgo) {
-                    return '<div class="active-indicator"></div>';
-                }
-                
-                return '<div class="offline-indicator"></div>';
-            }
+
 
 
             
