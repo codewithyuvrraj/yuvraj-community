@@ -3771,45 +3771,17 @@
                     let users = [];
                     
                     if (isSupabaseEnabled) {
-                        // Try multiple search approaches for better results
-                        const searchPromises = [
-                            // Search by username
-                            supabase
-                                .from('profiles')
-                                .select('*')
-                                .ilike('username', `%${query}%`)
-                                .neq('id', this.currentUser.id)
-                                .limit(5),
-                            // Search by full name
-                            supabase
-                                .from('profiles')
-                                .select('*')
-                                .ilike('full_name', `%${query}%`)
-                                .neq('id', this.currentUser.id)
-                                .limit(5),
-                            // Search by email
-                            supabase
-                                .from('profiles')
-                                .select('*')
-                                .ilike('email', `%${query}%`)
-                                .neq('id', this.currentUser.id)
-                                .limit(5)
-                        ];
+                        // Use the new active users search function
                         
-                        const results = await Promise.allSettled(searchPromises);
-                        const allUsers = new Map();
+                        // Use the new active users search function
+                        const { data, error } = await supabase
+                            .rpc('search_active_users', { 
+                                search_query: query,
+                                current_user_id: this.currentUser?.id 
+                            });
                         
-                        results.forEach(result => {
-                            if (result.status === 'fulfilled' && result.value.data) {
-                                result.value.data.forEach(user => {
-                                    allUsers.set(user.id, user);
-                                });
-                            }
-                        });
-                        
-                        users = Array.from(allUsers.values())
-                            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-                            .slice(0, 15);
+                        if (error) throw error;
+                        users = data || [];
                     } else {
                         // Fallback to cached users
                         const cachedUsers = JSON.parse(localStorage.getItem('businessconnect_all_users') || '[]');

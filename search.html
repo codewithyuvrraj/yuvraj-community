@@ -323,7 +323,7 @@
                 
                 if (isSupabaseEnabled) {
                     const { data, error } = await supabase
-                        .rpc('search_users', { 
+                        .rpc('search_active_users', { 
                             search_query: query,
                             current_user_id: currentUser?.id 
                         });
@@ -419,7 +419,7 @@
                 
                 if (isSupabaseEnabled) {
                     const { data, error } = await supabase
-                        .rpc('get_all_users', { current_user_id: currentUser?.id });
+                        .rpc('get_active_users', { current_user_id: currentUser?.id });
                     
                     if (error) {
                         console.error('Supabase error:', error);
