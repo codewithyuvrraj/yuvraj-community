@@ -6,10 +6,10 @@ class ChatManager {
         this.isInitialized = false;
     }
 
-    initialize() {
+    async initialize() {
         if (this.isInitialized) return;
         this.setupEventListeners();
-        this.setupRealtimeListeners();
+        await this.setupRealtimeListeners();
         this.isInitialized = true;
         console.log('ChatManager initialized');
     }
@@ -233,15 +233,11 @@ class ChatManager {
         return [userId1, userId2].sort().join('_');
     }
 
-    setupRealtimeListeners() {
+    async setupRealtimeListeners() {
         if (!window.isSupabaseEnabled || !window.supabase) return;
 
         this.realtimeChannel = window.supabase
-            .channel('public:messages', {
-                config: {
-                    broadcast: { self: false }
-                }
-            })
+            .channel('messages')
             .on('postgres_changes', {
                 event: 'INSERT',
                 schema: 'public',
@@ -258,10 +254,14 @@ class ChatManager {
                     this.addMessageToUI(message);
                     this.scrollToBottom();
                 }
-            })
-            .subscribe((status) => {
-                console.log('Real-time subscription status:', status);
             });
+
+        const { error } = await this.realtimeChannel.subscribe();
+        if (error) {
+            console.error('Realtime subscription error:', error);
+        } else {
+            console.log('✅ Real-time messaging enabled');
+        }
     }
 
     async handleFileUpload(file) {

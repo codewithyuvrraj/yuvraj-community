@@ -1931,11 +1931,11 @@
                 
                 // Initialize app components
                 if (window.chatManager) {
-                    window.chatManager.initialize();
+                    await window.chatManager.initialize();
                 } else {
                     // Fallback initialization
-                    setTimeout(() => {
-                        if (window.chatManager) window.chatManager.initialize();
+                    setTimeout(async () => {
+                        if (window.chatManager) await window.chatManager.initialize();
                     }, 100);
                 }
                 
