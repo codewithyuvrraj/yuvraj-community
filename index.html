@@ -2564,15 +2564,17 @@
             async showUserProfile(userId) {
                 try {
                     let user;
+                    let isFollowing = false;
                     if (isSupabaseEnabled) {
                         const { data, error } = await supabase
-                            .from('profiles')
-                            .select('*')
-                            .eq('id', userId)
-                            .single();
+                            .rpc('get_user_profile_with_follow_status', {
+                                profile_user_id: userId,
+                                current_user_id: this.currentUser.id
+                            });
                         
                         if (error) throw error;
-                        user = data;
+                        user = data[0];
+                        isFollowing = user.is_following;
                         
                         // Track profile view (only if viewing someone else's profile)
                         if (userId !== this.currentUser.id) {
@@ -2643,6 +2645,9 @@
                                 <div style="display: flex; gap: 12px; justify-content: center; margin-top: 24px;">
                                     <button class="btn btn-primary" onclick="window.chatManager.startConversation('${user.id}'); this.closest('.overlay').remove();">
                                         <i class="fas fa-comment"></i> Start Conversation
+                                    </button>
+                                    <button class="btn" id="profileFollowBtn_${user.id}" style="background: ${isFollowing ? '#ef4444' : '#10b981'}; color: white;" onclick="window.authManager.toggleFollowFromProfile('${user.id}')">
+                                        <i class="fas fa-${isFollowing ? 'user-minus' : 'user-plus'}"></i> ${isFollowing ? 'Unfollow' : 'Follow'}
                                     </button>
                                     <button class="btn" style="background: #e5e7eb; color: #374151;" onclick="window.authManager.copyChatLink('${user.id}')">
                                         <i class="fas fa-share"></i> Share Profile
@@ -3270,6 +3275,47 @@
             resetTheme() {
                 localStorage.removeItem('businessconnect_theme');
                 location.reload();
+            }
+            
+            async toggleFollowFromProfile(userId) {
+                const btn = document.getElementById(`profileFollowBtn_${userId}`);
+                const isCurrentlyFollowing = btn.textContent.trim() === 'Unfollow';
+                
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+                
+                try {
+                    if (isCurrentlyFollowing) {
+                        // Unfollow
+                        await supabase
+                            .from('follows')
+                            .delete()
+                            .eq('follower_id', this.currentUser.id)
+                            .eq('following_id', userId);
+                        
+                        btn.innerHTML = '<i class="fas fa-user-plus"></i> Follow';
+                        btn.style.background = '#10b981';
+                    } else {
+                        // Follow
+                        await supabase
+                            .from('follows')
+                            .insert({
+                                follower_id: this.currentUser.id,
+                                following_id: userId
+                            });
+                        
+                        btn.innerHTML = '<i class="fas fa-user-minus"></i> Unfollow';
+                        btn.style.background = '#ef4444';
+                    }
+                    
+                    btn.disabled = false;
+                    this.loadHomeFeed();
+                    
+                } catch (error) {
+                    console.error('Toggle follow error:', error);
+                    btn.disabled = false;
+                    btn.innerHTML = isCurrentlyFollowing ? '<i class="fas fa-user-minus"></i> Unfollow' : '<i class="fas fa-user-plus"></i> Follow';
+                }
             }
             
             showInfluencerBusiness() {
