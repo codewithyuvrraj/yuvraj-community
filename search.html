@@ -322,24 +322,27 @@
                 let users = [];
                 
                 if (isSupabaseEnabled) {
-                    console.log('Searching for:', query);
                     const { data, error } = await supabase
                         .from('profiles')
-                        .select('id, username, full_name, email, profile_photo, bio, job_title, company, industry')
-                        .or(`username.ilike.%${query}%,full_name.ilike.%${query}%,email.ilike.%${query}%`)
+                        .select('*')
+                        .textSearch('fts', query)
                         .neq('id', currentUser?.id || '00000000-0000-0000-0000-000000000000')
-                        .not('username', 'is', null)
-                        .not('full_name', 'is', null)
-                        .neq('username', '')
-                        .neq('full_name', '')
-                        .limit(50);
+                        .limit(20);
                     
                     if (error) {
-                        console.error('Search error:', error);
-                        throw error;
+                        // Fallback to simple search
+                        const { data: fallbackData, error: fallbackError } = await supabase
+                            .from('profiles')
+                            .select('*')
+                            .ilike('username', `%${query}%`)
+                            .neq('id', currentUser?.id || '00000000-0000-0000-0000-000000000000')
+                            .limit(20);
+                        
+                        if (fallbackError) throw fallbackError;
+                        users = fallbackData?.filter(u => u.username && u.full_name) || [];
+                    } else {
+                        users = data?.filter(u => u.username && u.full_name) || [];
                     }
-                    users = data || [];
-                    console.log('Found users:', users);
                 } else {
                     users = [];
                 }
@@ -420,23 +423,17 @@
                 let users = [];
                 
                 if (isSupabaseEnabled) {
-                    console.log('Loading all users...');
                     const { data, error } = await supabase
                         .from('profiles')
-                        .select('id, username, full_name, email, profile_photo, bio, job_title, company, industry')
+                        .select('*')
                         .neq('id', currentUser?.id || '00000000-0000-0000-0000-000000000000')
-                        .not('username', 'is', null)
-                        .not('full_name', 'is', null)
-                        .neq('username', '')
-                        .neq('full_name', '')
-                        .limit(100);
+                        .limit(50);
                     
                     if (error) {
                         console.error('Supabase error:', error);
                         throw error;
                     }
-                    users = data || [];
-                    console.log('Loaded users:', users.length);
+                    users = data?.filter(u => u.username && u.full_name && u.username.trim() && u.full_name.trim()) || [];
                 } else {
                     users = [];
                 }
