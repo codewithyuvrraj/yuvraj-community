@@ -339,35 +339,7 @@
                         users = users.filter(user => user.id !== currentUser.id);
                     }
                 } else {
-                    // Demo search
-                    const demoUsers = [
-                        {
-                            id: 'demo1',
-                            username: 'johndoe',
-                            full_name: 'John Doe',
-                            email: 'john@example.com',
-                            job_title: 'Software Engineer',
-                            company: 'Tech Corp',
-                            industry: 'Technology',
-                            bio: 'Passionate about building great software'
-                        },
-                        {
-                            id: 'demo2',
-                            username: 'janedoe',
-                            full_name: 'Jane Smith',
-                            email: 'jane@example.com',
-                            job_title: 'Product Manager',
-                            company: 'Innovation Inc',
-                            industry: 'Technology',
-                            bio: 'Leading product development teams'
-                        }
-                    ];
-                    
-                    users = demoUsers.filter(user => 
-                        user.username.toLowerCase().includes(query.toLowerCase()) ||
-                        user.full_name.toLowerCase().includes(query.toLowerCase()) ||
-                        user.email.toLowerCase().includes(query.toLowerCase())
-                    );
+                    users = [];
                 }
 
                 displayResults(users);
@@ -460,27 +432,7 @@
                         users = users.filter(user => user.id !== currentUser.id);
                     }
                 } else {
-                    // Fallback to demo users
-                    users = [
-                        {
-                            id: 'demo1',
-                            username: 'johndoe',
-                            full_name: 'John Doe',
-                            email: 'john@example.com',
-                            job_title: 'Software Engineer',
-                            company: 'Tech Corp',
-                            bio: 'Passionate about building great software'
-                        },
-                        {
-                            id: 'demo2',
-                            username: 'janedoe',
-                            full_name: 'Jane Smith',
-                            email: 'jane@example.com',
-                            job_title: 'Product Manager',
-                            company: 'Innovation Inc',
-                            bio: 'Leading product development teams'
-                        }
-                    ];
+                    users = [];
                 }
 
                 displayResults(users);
@@ -499,41 +451,7 @@
             }
         }
         
-        function showDemoUsers() {
-            const demoUsers = [
-                {
-                    id: 'demo1',
-                    username: 'johndoe',
-                    full_name: 'John Doe',
-                    email: 'john@example.com',
-                    job_title: 'Software Engineer',
-                    company: 'Tech Corp',
-                    industry: 'Technology',
-                    bio: 'Passionate about building great software and leading development teams.'
-                },
-                {
-                    id: 'demo2',
-                    username: 'janedoe',
-                    full_name: 'Jane Smith',
-                    email: 'jane@example.com',
-                    job_title: 'Product Manager',
-                    company: 'Innovation Inc',
-                    industry: 'Technology',
-                    bio: 'Leading product development teams and driving innovation.'
-                },
-                {
-                    id: 'demo3',
-                    username: 'mikebrown',
-                    full_name: 'Mike Brown',
-                    email: 'mike@example.com',
-                    job_title: 'Marketing Director',
-                    company: 'Growth Co',
-                    industry: 'Marketing',
-                    bio: 'Expert in digital marketing and brand strategy.'
-                }
-            ];
-            displayResults(demoUsers);
-        }
+
 
         async function startChat(userId) {
             if (!currentUser) {
