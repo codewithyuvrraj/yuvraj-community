@@ -728,7 +728,30 @@
             right: 2px;
             width: 16px;
             height: 16px;
-            background: #10b981;
+            background: #22c55e;
+            border: 3px solid white;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        .offline-indicator {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            width: 16px;
+            height: 16px;
+            background: #ef4444;
+            border: 3px solid white;
+            border-radius: 50%;
+        }
+        
+        .active-indicator {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            width: 16px;
+            height: 16px;
+            background: #f59e0b;
             border: 3px solid white;
             border-radius: 50%;
             animation: pulse 2s infinite;
@@ -2652,7 +2675,7 @@
                                         `<img src="${user.profile_photo}">` :
                                         (user.full_name || user.username).charAt(0).toUpperCase()
                                     }
-                                    ${this.isUserOnline(user.user_status?.[0]?.last_seen) ? '<div class="online-indicator"></div>' : ''}
+                                    ${this.getUserStatusIndicator(user.user_status?.[0])}
                                     ${unreadCount > 0 ? `<div class="unread-badge">${unreadCount}</div>` : ''}
                                 </div>
                                 <div class="followed-user-info">
@@ -2661,8 +2684,8 @@
                                     ${user.company ? `<div class="followed-user-company">at ${user.company}</div>` : ''}
                                     ${user.bio ? `<div class="followed-user-bio">${user.bio}</div>` : ''}
                                     <div class="followed-user-status">
-                                        <i class="fas fa-circle" style="color: ${this.isUserOnline(user.user_status?.[0]?.last_seen) ? '#10b981' : '#6b7280'}"></i> 
-                                        ${this.isUserOnline(user.user_status?.[0]?.last_seen) ? 'Online' : 'Offline'} 
+                                        <i class="fas fa-circle" style="color: ${this.getUserStatusColor(user.user_status?.[0])}"></i> 
+                                        ${this.getUserStatusText(user.user_status?.[0])} 
                                         ${unreadCount > 0 ? `• ${unreadCount} unread` : ''}
                                     </div>
                                 </div>
@@ -3573,7 +3596,10 @@
                             p_conversation_id: conversationId
                         });
                     
-                    if (error) throw error;
+                    if (error) {
+                        console.error('RPC error:', error);
+                        return 0;
+                    }
                     return data || 0;
                 } catch (error) {
                     console.error('Error getting unread count:', error);
@@ -4200,6 +4226,54 @@
                     console.error('Follow error:', error);
                     this.showNotification('Failed to follow user', 'error');
                 }
+            }
+
+            getUserStatusColor(userStatus) {
+                if (!userStatus) return '#ef4444'; // Red for offline
+                
+                if (userStatus.is_online) {
+                    return '#22c55e'; // Green for online
+                }
+                
+                // Check if user was active in last 30 minutes
+                const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+                if (userStatus.last_seen && new Date(userStatus.last_seen) > thirtyMinutesAgo) {
+                    return '#f59e0b'; // Orange for recently active
+                }
+                
+                return '#ef4444'; // Red for offline
+            }
+            
+            getUserStatusText(userStatus) {
+                if (!userStatus) return 'Offline';
+                
+                if (userStatus.is_online) {
+                    return 'Online';
+                }
+                
+                // Check if user was active in last 30 minutes
+                const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+                if (userStatus.last_seen && new Date(userStatus.last_seen) > thirtyMinutesAgo) {
+                    return 'Active';
+                }
+                
+                return 'Offline';
+            }
+            
+            getUserStatusIndicator(userStatus) {
+                if (!userStatus) return '<div class="offline-indicator"></div>';
+                
+                if (userStatus.is_online) {
+                    return '<div class="online-indicator"></div>';
+                }
+                
+                // Check if user was active in last 30 minutes
+                const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+                if (userStatus.last_seen && new Date(userStatus.last_seen) > thirtyMinutesAgo) {
+                    return '<div class="active-indicator"></div>';
+                }
+                
+                return '<div class="offline-indicator"></div>';
             }
 
             async setUserOnline() {

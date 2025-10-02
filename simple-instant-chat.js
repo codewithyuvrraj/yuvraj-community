@@ -35,7 +35,13 @@ class SimpleInstantChat {
         try {
             const { data: user } = await window.supabase
                 .from('profiles')
-                .select('*')
+                .select(`
+                    *,
+                    user_status(
+                        is_online,
+                        last_seen
+                    )
+                `)
                 .eq('id', userId)
                 .single();
 
@@ -90,7 +96,11 @@ class SimpleInstantChat {
         const chatStatus = document.getElementById('chatStatus');
         
         if (chatTitle) chatTitle.textContent = user.full_name || user.username;
-        if (chatStatus) chatStatus.innerHTML = '<i class="fas fa-circle" style="color: #10b981; font-size: 8px; margin-right: 4px;"></i>Online';
+        if (chatStatus && window.authManager) {
+            const statusColor = window.authManager.getUserStatusColor(user.user_status?.[0]);
+            const statusText = window.authManager.getUserStatusText(user.user_status?.[0]);
+            chatStatus.innerHTML = `<i class="fas fa-circle" style="color: ${statusColor}; font-size: 8px; margin-right: 4px;"></i>${statusText}`;
+        }
     }
 
     async loadMessages() {
