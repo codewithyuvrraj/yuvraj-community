@@ -177,9 +177,7 @@ class ChatManager {
                 conversation_id: this.currentConversation.conversationId,
                 sender_id: window.authManager.currentUser.id,
                 text: text,
-                type: 'text',
-                timestamp: new Date().toISOString(),
-                created_at: new Date().toISOString()
+                type: 'text'
             };
 
             console.log('Sending message:', message);
@@ -188,7 +186,8 @@ class ChatManager {
             input.value = '';
             this.addMessageToUI({
                 ...message,
-                id: Date.now().toString()
+                id: Date.now().toString(),
+                timestamp: new Date().toISOString()
             });
 
             // Save to database
