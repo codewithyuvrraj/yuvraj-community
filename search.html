@@ -394,7 +394,7 @@
                         <button class="btn btn-primary" onclick="startChat('${user.id}')">
                             <i class="fas fa-comment"></i> Message
                         </button>
-                        <button class="btn btn-secondary" onclick="followUser('${user.id}')">
+                        <button class="btn btn-secondary" id="followBtn_${user.id}" onclick="followUser('${user.id}')">
                             <i class="fas fa-user-plus"></i> Follow
                         </button>
                     </div>
@@ -472,7 +472,7 @@
                 return;
             }
 
-            const followBtn = event.target;
+            const followBtn = document.getElementById(`followBtn_${userId}`);
             const originalText = followBtn.innerHTML;
             followBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Following...';
             followBtn.disabled = true;
@@ -490,7 +490,8 @@
                         if (error.code === '23505') {
                             followBtn.innerHTML = '<i class="fas fa-check"></i> Following';
                             followBtn.style.background = '#10b981';
-                            followBtn.onclick = () => unfollowUser(userId);
+                            followBtn.setAttribute('onclick', `unfollowUser('${userId}')`);
+                            followBtn.disabled = false;
                             return;
                         } else {
                             throw error;
@@ -500,14 +501,9 @@
                 
                 followBtn.innerHTML = '<i class="fas fa-check"></i> Following';
                 followBtn.style.background = '#10b981';
-                followBtn.onclick = () => unfollowUser(userId);
+                followBtn.setAttribute('onclick', `unfollowUser('${userId}')`);
+                followBtn.disabled = false;
                 
-                // Notify parent window if opened from main app
-                if (window.opener) {
-                    window.opener.postMessage('followChanged', '*');
-                }
-                
-                // Also trigger storage event for same-window detection
                 localStorage.setItem('feed_refresh', Date.now().toString());
                 
             } catch (error) {
@@ -521,7 +517,7 @@
         async function unfollowUser(userId) {
             if (!currentUser) return;
 
-            const followBtn = event.target;
+            const followBtn = document.getElementById(`followBtn_${userId}`);
             followBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Unfollowing...';
             followBtn.disabled = true;
 
@@ -538,7 +534,8 @@
                 
                 followBtn.innerHTML = '<i class="fas fa-user-plus"></i> Follow';
                 followBtn.style.background = '#6b7280';
-                followBtn.onclick = () => followUser(userId);
+                followBtn.setAttribute('onclick', `followUser('${userId}')`);
+                followBtn.disabled = false;
                 
                 localStorage.setItem('feed_refresh', Date.now().toString());
                 
