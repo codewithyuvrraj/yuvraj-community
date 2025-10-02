@@ -4013,6 +4013,152 @@
                 await this.deleteChatForMe(conversationId);
             }
             
+            async openGroup(groupId) {
+                this.showNotification('Opening group...', 'success');
+                // Close the modal
+                document.querySelector('.overlay').remove();
+                // Group functionality would be implemented here
+                console.log('Opening group:', groupId);
+            }
+            
+            async openChannel(channelId) {
+                this.showNotification('Opening channel...', 'success');
+                // Close the modal
+                document.querySelector('.overlay').remove();
+                // Channel functionality would be implemented here
+                console.log('Opening channel:', channelId);
+            }
+            
+            async showMyGroups() {
+                let groups = [];
+                
+                if (isSupabaseEnabled) {
+                    try {
+                        const { data, error } = await supabase
+                            .from('groups')
+                            .select('*')
+                            .eq('creator_id', this.currentUser.id);
+                        
+                        if (error) throw error;
+                        groups = data || [];
+                    } catch (error) {
+                        console.error('Error loading my groups:', error);
+                    }
+                }
+                
+                const modal = document.createElement('div');
+                modal.className = 'overlay';
+                modal.innerHTML = `
+                    <div class="settings-modal" style="max-width: 500px; max-height: 90vh;">
+                        <div class="settings-header" style="background: #10b981; color: white;">
+                            <h3><i class="fas fa-users"></i> My Groups</h3>
+                            <button class="close-btn" onclick="this.closest('.overlay').remove();" style="color: white;">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="settings-content" style="max-height: 70vh; overflow-y: auto;">
+                            <div style="margin-bottom: 16px;">
+                                <button class="btn" style="background: #10b981; color: white; width: 100%;" onclick="window.authManager.showCreateGroup()">
+                                    <i class="fas fa-plus"></i> Create New Group
+                                </button>
+                            </div>
+                            ${groups.length === 0 ? `
+                                <div style="text-align: center; padding: 40px 20px; color: #6b7280;">
+                                    <i class="fas fa-users" style="font-size: 48px; margin-bottom: 16px;"></i>
+                                    <h3>No Groups Created</h3>
+                                    <p>Create your first group to get started.</p>
+                                </div>
+                            ` : `
+                                ${groups.map(group => `
+                                    <div onclick="window.authManager.openGroup('${group.id}')" style="display: flex; align-items: center; padding: 16px; background: #f8fafc; border-radius: 12px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; border-left: 4px solid #10b981;">
+                                        <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #10b981, #059669); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 18px; margin-right: 16px;">
+                                            ${group.name.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div style="flex: 1;">
+                                            <div style="font-weight: 600; font-size: 16px; color: #1f2937; margin-bottom: 4px;">${group.name}</div>
+                                            <div style="color: #6b7280; font-size: 14px;">${group.description || 'No description'}</div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            `}
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+            
+            async showMyChannels() {
+                let channels = [];
+                
+                if (isSupabaseEnabled) {
+                    try {
+                        const { data, error } = await supabase
+                            .from('channels')
+                            .select('*')
+                            .eq('creator_id', this.currentUser.id);
+                        
+                        if (error) throw error;
+                        channels = data || [];
+                    } catch (error) {
+                        console.error('Error loading my channels:', error);
+                    }
+                }
+                
+                const modal = document.createElement('div');
+                modal.className = 'overlay';
+                modal.innerHTML = `
+                    <div class="settings-modal" style="max-width: 500px; max-height: 90vh;">
+                        <div class="settings-header" style="background: #f59e0b; color: white;">
+                            <h3><i class="fas fa-broadcast-tower"></i> My Channels</h3>
+                            <button class="close-btn" onclick="this.closest('.overlay').remove();" style="color: white;">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="settings-content" style="max-height: 70vh; overflow-y: auto;">
+                            <div style="margin-bottom: 16px;">
+                                <button class="btn" style="background: #f59e0b; color: white; width: 100%;" onclick="window.authManager.showCreateChannel()">
+                                    <i class="fas fa-plus"></i> Create New Channel
+                                </button>
+                            </div>
+                            ${channels.length === 0 ? `
+                                <div style="text-align: center; padding: 40px 20px; color: #6b7280;">
+                                    <i class="fas fa-broadcast-tower" style="font-size: 48px; margin-bottom: 16px;"></i>
+                                    <h3>No Channels Created</h3>
+                                    <p>Create your first channel to get started.</p>
+                                </div>
+                            ` : `
+                                ${channels.map(channel => `
+                                    <div onclick="window.authManager.openChannel('${channel.id}')" style="display: flex; align-items: center; padding: 16px; background: #f8fafc; border-radius: 12px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; border-left: 4px solid #f59e0b;">
+                                        <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #f59e0b, #d97706); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 18px; margin-right: 16px;">
+                                            ${channel.name.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div style="flex: 1;">
+                                            <div style="font-weight: 600; font-size: 16px; color: #1f2937; margin-bottom: 4px;">${channel.name}</div>
+                                            <div style="color: #6b7280; font-size: 14px;">${channel.description || 'No description'}</div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            `}
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+            
+            toggleGroupsChannelsDropdown() {
+                const dropdown = document.getElementById('groupsChannelsDropdown');
+                if (dropdown) {
+                    dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+                }
+            }
+            
+            hideGroupsChannelsDropdown() {
+                const dropdown = document.getElementById('groupsChannelsDropdown');
+                if (dropdown) {
+                    dropdown.style.display = 'none';
+                }
+            }
+            
             showChatOptionsFromHeader() {
                 if (window.chatManager && window.chatManager.currentConversation) {
                     const user = window.chatManager.currentConversation.user;
