@@ -3949,8 +3949,8 @@
                             <h3><i class="fas fa-exclamation-triangle"></i> Delete Chat</h3>
                         </div>
                         <div class="settings-content" style="padding: 20px; text-align: center;">
-                            <p style="margin-bottom: 20px; color: #374151;">Delete chat with <strong>${userName}</strong>?</p>
-                            <p style="margin-bottom: 20px; font-size: 14px; color: #6b7280;">This will only delete the chat for you. The other person will still have the conversation.</p>
+                            <p style="margin-bottom: 20px; color: #374151;">Delete entire conversation with <strong>${userName}</strong>?</p>
+                            <p style="margin-bottom: 20px; font-size: 14px; color: #6b7280;">This will permanently delete all messages in this conversation.</p>
                             <div style="display: flex; gap: 12px;">
                                 <button class="btn" style="background: #ef4444; color: white; flex: 1;" onclick="window.authManager.executeDeleteChat('${userId}')">
                                     <i class="fas fa-trash"></i> Delete
@@ -3992,18 +3992,15 @@
                 if (!isSupabaseEnabled || !this.currentUser) return;
                 
                 try {
-                    // Create or update deleted_chats record for this user
+                    // Delete all messages in this conversation
                     const { error } = await supabase
-                        .from('deleted_chats')
-                        .upsert({
-                            user_id: this.currentUser.id,
-                            conversation_id: conversationId,
-                            deleted_at: new Date().toISOString()
-                        });
+                        .from('messages')
+                        .delete()
+                        .eq('conversation_id', conversationId);
                     
                     if (error) throw error;
                     
-                    this.showNotification('Chat deleted for you', 'success');
+                    this.showNotification('Chat deleted', 'success');
                     
                     // Go back to home feed
                     if (window.chatManager) {
