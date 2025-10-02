@@ -128,7 +128,12 @@ class SimpleInstantChat {
         }
         
         if (chatOptionsBtn) {
-            chatOptionsBtn.style.display = 'block';
+            chatOptionsBtn.style.display = 'none';
+        }
+        
+        // Show delete chat button in settings if available
+        if (window.authManager && window.authManager.showDeleteChatInSettings) {
+            window.authManager.showDeleteChatInSettings();
         }
     }
 
@@ -449,6 +454,11 @@ class SimpleInstantChat {
         if (chatStatus) chatStatus.innerHTML = '';
         if (chatOptionsBtn) chatOptionsBtn.style.display = 'none';
         if (backBtn) backBtn.style.display = 'none';
+        
+        // Hide delete chat button in settings
+        if (window.authManager && window.authManager.hideDeleteChatInSettings) {
+            window.authManager.hideDeleteChatInSettings();
+        }
     }
 }
 

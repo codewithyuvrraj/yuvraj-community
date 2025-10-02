@@ -1535,9 +1535,7 @@
                     <div class="chat-info">
                         <h3 id="chatTitle">BusinessConnect</h3>
                         <span id="chatStatus" class="status-indicator"></span>
-                        <button id="chatOptionsBtn" class="btn btn-icon" title="Chat Settings" style="display: none; margin-left: 8px;" onclick="window.authManager.showChatSettingsFromHeader()">
-                            <i class="fas fa-cog"></i>
-                        </button>
+
                     </div>
                     <div class="chat-actions">
                         <div id="influencerButtons" style="display: none; gap: 8px;">
@@ -2407,6 +2405,11 @@
                                             <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
                                         </svg>
                                     </div>
+                                    <div class="setting-item" id="deleteChatSection" style="display: none;">
+                                        <button class="btn" style="background: #ef4444; color: white;" onclick="window.authManager.deleteCurrentChat()">
+                                            <i class="fas fa-trash"></i> Delete Current Chat
+                                        </button>
+                                    </div>
                                     <div class="setting-item">
                                         <button class="btn" style="background: #3b82f6; color: white;" onclick="window.authManager.showAccountStatus()">
                                             <i class="fas fa-chart-line"></i> Account Status
@@ -2454,6 +2457,9 @@
                     document.getElementById('businessHours').value = this.currentUser.business_hours || '9 AM - 5 PM';
                     document.getElementById('timezone').value = this.currentUser.timezone || 'UTC+0 (GMT)';
                     document.getElementById('autoReply').value = this.currentUser.auto_reply || 'Disabled';
+                    
+                    // Show delete chat button if in a conversation
+                    this.showDeleteChatInSettings();
                 }, 100);
             }
             
@@ -4173,6 +4179,86 @@
                     const user = window.chatManager.currentConversation.user;
                     const conversationId = window.chatManager.currentConversation.conversationId;
                     window.chatSettings.showChatSettings(conversationId, user.full_name || user.username);
+                }
+            }
+            
+            showDeleteChatInSettings() {
+                const deleteChatSection = document.getElementById('deleteChatSection');
+                if (deleteChatSection && window.chatManager && window.chatManager.currentConversation) {
+                    deleteChatSection.style.display = 'block';
+                }
+            }
+            
+            hideDeleteChatInSettings() {
+                const deleteChatSection = document.getElementById('deleteChatSection');
+                if (deleteChatSection) {
+                    deleteChatSection.style.display = 'none';
+                }
+            }
+            
+            deleteCurrentChat() {
+                if (window.chatManager && window.chatManager.currentConversation) {
+                    const user = window.chatManager.currentConversation.user;
+                    const conversationId = window.chatManager.currentConversation.conversationId;
+                    
+                    // Close settings modal first
+                    const settingsOverlay = document.getElementById('settingsOverlay');
+                    if (settingsOverlay) settingsOverlay.remove();
+                    
+                    // Show confirmation dialog
+                    this.confirmDeleteCurrentChat(user.id, user.full_name || user.username);
+                }
+            }
+            
+            confirmDeleteCurrentChat(userId, userName) {
+                const modal = document.createElement('div');
+                modal.className = 'overlay';
+                modal.innerHTML = `
+                    <div class="settings-modal" style="max-width: 350px;">
+                        <div class="settings-header" style="background: #ef4444; color: white;">
+                            <h3><i class="fas fa-exclamation-triangle"></i> Delete Chat</h3>
+                        </div>
+                        <div class="settings-content" style="padding: 20px; text-align: center;">
+                            <p style="margin-bottom: 20px; color: #374151;">Delete entire conversation with <strong>${userName}</strong>?</p>
+                            <p style="margin-bottom: 20px; font-size: 14px; color: #6b7280;">This will permanently delete all messages in this conversation.</p>
+                            <div style="display: flex; gap: 12px;">
+                                <button class="btn" style="background: #ef4444; color: white; flex: 1;" onclick="window.authManager.executeDeleteCurrentChat('${userId}')">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                                <button class="btn" style="background: #6b7280; color: white; flex: 1;" onclick="this.closest('.overlay').remove()">
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+            
+            async executeDeleteCurrentChat(userId) {
+                const conversationId = [this.currentUser.id, userId].sort().join('_');
+                document.querySelector('.overlay').remove();
+                
+                try {
+                    // Delete from database
+                    const { error } = await supabase
+                        .from('messages')
+                        .delete()
+                        .eq('conversation_id', conversationId);
+                    
+                    if (error) throw error;
+                    
+                    this.showNotification('Chat deleted successfully', 'success');
+                    
+                    // Go back to home feed
+                    if (window.chatManager) {
+                        window.chatManager.cleanup();
+                    }
+                    this.goBackToHomeFeed();
+                    
+                } catch (error) {
+                    console.error('Error deleting chat:', error);
+                    this.showNotification('Failed to delete chat', 'error');
                 }
             }
             
