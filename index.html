@@ -3783,8 +3783,12 @@
                 return [userId1, userId2].sort().join('_');
             }
             
-            getConversationId(userId1, userId2) {
-                return [userId1, userId2].sort().join('_');
+            getLastReadTime(conversationId) {
+                if (!conversationId || !this.currentUser) return new Date(0).toISOString();
+                
+                const key = `lastRead_${this.currentUser.id}_${conversationId}`;
+                const lastRead = localStorage.getItem(key);
+                return lastRead || new Date(0).toISOString();
             }
             
             async markConversationAsRead(conversationId) {
