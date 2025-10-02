@@ -1627,10 +1627,14 @@
         try {
             supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
             isSupabaseEnabled = true;
+            // Make globally accessible
+            window.supabase = supabase;
+            window.isSupabaseEnabled = isSupabaseEnabled;
             console.log('Supabase initialized successfully');
         } catch (error) {
             console.log('Supabase initialization error:', error);
             isSupabaseEnabled = false;
+            window.isSupabaseEnabled = false;
         }
 
         // Auto-start chat if link is opened
@@ -1924,7 +1928,14 @@
                 // User info is now handled in modals
                 
                 // Initialize app components
-                if (window.chatManager) window.chatManager.initialize();
+                if (window.chatManager) {
+                    window.chatManager.initialize();
+                } else {
+                    // Fallback initialization
+                    setTimeout(() => {
+                        if (window.chatManager) window.chatManager.initialize();
+                    }, 100);
+                }
                 
 
                 

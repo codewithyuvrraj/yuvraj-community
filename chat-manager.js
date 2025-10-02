@@ -4,10 +4,18 @@ class ChatManager {
         this.currentConversation = null;
         this.messages = [];
         this.isInitialized = false;
+        this.supabase = null;
+        this.isSupabaseEnabled = false;
     }
 
     initialize() {
         if (this.isInitialized) return;
+        
+        // Get Supabase from global scope
+        if (window.supabase && window.isSupabaseEnabled) {
+            this.supabase = window.supabase;
+            this.isSupabaseEnabled = window.isSupabaseEnabled;
+        }
         
         this.setupEventListeners();
         this.isInitialized = true;
@@ -59,8 +67,8 @@ class ChatManager {
 
             // Get user info
             let otherUser;
-            if (isSupabaseEnabled) {
-                const { data, error } = await supabase
+            if (this.isSupabaseEnabled && this.supabase) {
+                const { data, error } = await this.supabase
                     .from('profiles')
                     .select('*')
                     .eq('id', userId)
@@ -110,8 +118,8 @@ class ChatManager {
             messagesContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #6b7280;">Loading messages...</div>';
 
             let messages = [];
-            if (isSupabaseEnabled) {
-                const { data, error } = await supabase
+            if (this.isSupabaseEnabled && this.supabase) {
+                const { data, error } = await this.supabase
                     .from('messages')
                     .select('*')
                     .eq('conversation_id', this.currentConversation.conversationId)
@@ -190,8 +198,8 @@ class ChatManager {
             this.addMessageToUI(message);
 
             // Save to database
-            if (isSupabaseEnabled) {
-                const { error } = await supabase
+            if (this.isSupabaseEnabled && this.supabase) {
+                const { error } = await this.supabase
                     .from('messages')
                     .insert(message);
                 
