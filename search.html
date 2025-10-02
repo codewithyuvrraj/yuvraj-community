@@ -325,42 +325,15 @@
                     const { data, error } = await supabase
                         .from('profiles')
                         .select('*')
-                        .textSearch('fts', query)
+                        .ilike('username', `%${query}%`)
                         .neq('id', currentUser?.id || '00000000-0000-0000-0000-000000000000')
+                        .is('deleted_at', null)
                         .limit(20);
                     
-                    if (error) {
-                        // Fallback to simple search
-                        const { data: fallbackData, error: fallbackError } = await supabase
-                            .from('profiles')
-                            .select('*')
-                            .ilike('username', `%${query}%`)
-                            .neq('id', currentUser?.id || '00000000-0000-0000-0000-000000000000')
-                            .limit(20);
-                        
-                        if (fallbackError) throw fallbackError;
-                        const thirtyDaysAgo = new Date();
-                        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-                        users = fallbackData?.filter(u => 
-                            u.username && 
-                            u.full_name && 
-                            u.username.trim() && 
-                            u.full_name.trim() &&
-                            new Date(u.updated_at || u.created_at || '2025-01-01') > thirtyDaysAgo
-                        ) || [];
-                    } else {
-                        const thirtyDaysAgo = new Date();
-                        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-                        users = data?.filter(u => 
-                            u.username && 
-                            u.full_name && 
-                            u.username.trim() && 
-                            u.full_name.trim() &&
-                            new Date(u.updated_at || u.created_at || '2025-01-01') > thirtyDaysAgo
-                        ) || [];
-                    }
+                    if (error) throw error;
+                    users = data?.filter(u => u.username && u.full_name && u.username.trim() && u.full_name.trim()) || [];
                 } else {
-                    users = [];
+                    throw new Error('Database connection required');
                 }
 
                 displayResults(users);
@@ -369,11 +342,8 @@
                 resultsContainer.innerHTML = `
                     <div class="no-results">
                         <i class="fas fa-exclamation-triangle"></i>
-                        <h3>Search Error</h3>
-                        <p>Connection failed. Try demo search.</p>
-                        <button class="btn btn-primary" onclick="showDemoUsers()" style="margin-top: 12px;">
-                            <i class="fas fa-users"></i> Show Demo Users
-                        </button>
+                        <h3>Connection Error</h3>
+                        <p>Unable to connect to database. Please try again.</p>
                     </div>
                 `;
             }
@@ -443,24 +413,13 @@
                         .from('profiles')
                         .select('*')
                         .neq('id', currentUser?.id || '00000000-0000-0000-0000-000000000000')
+                        .is('deleted_at', null)
                         .limit(50);
                     
-                    if (error) {
-                        console.error('Supabase error:', error);
-                        throw error;
-                    }
-                    // Only show users created in last 30 days
-                    const thirtyDaysAgo = new Date();
-                    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-                    users = data?.filter(u => 
-                        u.username && 
-                        u.full_name && 
-                        u.username.trim() && 
-                        u.full_name.trim() &&
-                        new Date(u.updated_at || u.created_at || '2025-01-01') > thirtyDaysAgo
-                    ) || [];
+                    if (error) throw error;
+                    users = data?.filter(u => u.username && u.full_name && u.username.trim() && u.full_name.trim()) || [];
                 } else {
-                    users = [];
+                    throw new Error('Database connection required');
                 }
 
                 displayResults(users);
@@ -470,10 +429,7 @@
                     <div class="no-results">
                         <i class="fas fa-exclamation-triangle"></i>
                         <h3>Connection Error</h3>
-                        <p>Unable to connect to server. Showing demo users.</p>
-                        <button class="btn btn-primary" onclick="showDemoUsers()" style="margin-top: 12px;">
-                            <i class="fas fa-users"></i> Show Demo Users
-                        </button>
+                        <p>Unable to connect to database. Please try again.</p>
                     </div>
                 `;
             }
@@ -591,19 +547,37 @@
                     if (error) {
                         console.error('❌ Connection test failed:', error);
                         isSupabaseEnabled = false;
-                        showDemoUsers();
+                        document.getElementById('searchResults').innerHTML = `
+                            <div class="no-results">
+                                <i class="fas fa-database"></i>
+                                <h3>Database Offline</h3>
+                                <p>Please try again later</p>
+                            </div>
+                        `;
                     } else {
                         console.log('✅ Connection successful, loading users...');
                         showAllUsers();
                     }
                 } else {
-                    console.log('📱 Using demo mode');
-                    showDemoUsers();
+                    console.log('📱 Database not available');
+                    document.getElementById('searchResults').innerHTML = `
+                        <div class="no-results">
+                            <i class="fas fa-database"></i>
+                            <h3>Database Offline</h3>
+                            <p>Please try again later</p>
+                        </div>
+                    `;
                 }
             } catch (error) {
                 console.error('❌ Connection error:', error);
                 isSupabaseEnabled = false;
-                showDemoUsers();
+                document.getElementById('searchResults').innerHTML = `
+                    <div class="no-results">
+                        <i class="fas fa-database"></i>
+                        <h3>Database Offline</h3>
+                        <p>Please try again later</p>
+                    </div>
+                `;
             }
         }
     </script>
