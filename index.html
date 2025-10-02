@@ -3773,12 +3773,13 @@
                     if (isSupabaseEnabled) {
                         // Use the new active users search function
                         
-                        // Use the new active users search function
+                        // Direct search in profiles table
                         const { data, error } = await supabase
-                            .rpc('search_active_users', { 
-                                search_query: query,
-                                current_user_id: this.currentUser?.id 
-                            });
+                            .from('profiles')
+                            .select('*')
+                            .or(`username.ilike.%${query}%,full_name.ilike.%${query}%,email.ilike.%${query}%`)
+                            .neq('id', this.currentUser?.id || '00000000-0000-0000-0000-000000000000')
+                            .limit(15);
                         
                         if (error) throw error;
                         users = data || [];

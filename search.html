@@ -323,21 +323,17 @@
                 
                 if (isSupabaseEnabled) {
                     const { data, error } = await supabase
-                        .rpc('search_active_users', { 
-                            search_query: query,
-                            current_user_id: currentUser?.id 
-                        });
+                        .from('profiles')
+                        .select('*')
+                        .or(`username.ilike.%${query}%,full_name.ilike.%${query}%,email.ilike.%${query}%`)
+                        .neq('id', currentUser?.id || '00000000-0000-0000-0000-000000000000')
+                        .limit(50);
                     
                     if (error) {
                         console.error('Search error:', error);
                         throw error;
                     }
                     users = data || [];
-                    
-                    // Filter out current user
-                    if (currentUser) {
-                        users = users.filter(user => user.id !== currentUser.id);
-                    }
                 } else {
                     users = [];
                 }
@@ -419,18 +415,17 @@
                 
                 if (isSupabaseEnabled) {
                     const { data, error } = await supabase
-                        .rpc('get_active_users', { current_user_id: currentUser?.id });
+                        .from('profiles')
+                        .select('*')
+                        .neq('id', currentUser?.id || '00000000-0000-0000-0000-000000000000')
+                        .order('created_at', { ascending: false })
+                        .limit(100);
                     
                     if (error) {
                         console.error('Supabase error:', error);
                         throw error;
                     }
                     users = data || [];
-                    
-                    // Filter out current user
-                    if (currentUser) {
-                        users = users.filter(user => user.id !== currentUser.id);
-                    }
                 } else {
                     users = [];
                 }
