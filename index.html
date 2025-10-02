@@ -1295,6 +1295,12 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-2px); }
+            75% { transform: translateX(2px); }
+        }
 
         /* Group Online Status */
         .has-online-members .group-icon::after {
@@ -4053,12 +4059,16 @@
                         .rpc('get_unread_notification_count', { user_id: this.currentUser.id });
                     
                     const badge = document.getElementById('notificationBadge');
-                    if (badge) {
+                    const notificationBtn = document.getElementById('notificationsBtn');
+                    
+                    if (badge && notificationBtn) {
                         if (count > 0) {
                             badge.textContent = count > 99 ? '99+' : count;
                             badge.style.display = 'flex';
+                            notificationBtn.style.animation = 'shake 0.5s ease-in-out infinite';
                         } else {
                             badge.style.display = 'none';
+                            notificationBtn.style.animation = 'none';
                         }
                     }
                 } catch (error) {
@@ -4080,6 +4090,12 @@
                     }
                 }
                 
+                // Stop shake animation
+                const notificationBtn = document.getElementById('notificationsBtn');
+                if (notificationBtn) {
+                    notificationBtn.style.animation = 'none';
+                }
+                
                 // Close notifications modal
                 document.querySelector('.overlay').remove();
                 
@@ -4096,6 +4112,12 @@
                 try {
                     await supabase
                         .rpc('mark_all_notifications_read', { user_id: this.currentUser.id });
+                    
+                    // Stop shake animation
+                    const notificationBtn = document.getElementById('notificationsBtn');
+                    if (notificationBtn) {
+                        notificationBtn.style.animation = 'none';
+                    }
                     
                     this.showNotification('All notifications marked as read', 'success');
                     
