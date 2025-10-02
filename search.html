@@ -323,10 +323,10 @@
                 
                 if (isSupabaseEnabled) {
                     const { data, error } = await supabase
-                        .from('profiles')
-                        .select('*')
-                        .or(`username.ilike.%${query}%,email.ilike.%${query}%,full_name.ilike.%${query}%`)
-                        .limit(20);
+                        .rpc('search_users', { 
+                            search_query: query,
+                            current_user_id: currentUser?.id 
+                        });
                     
                     if (error) {
                         console.error('Search error:', error);
@@ -447,9 +447,7 @@
                 
                 if (isSupabaseEnabled) {
                     const { data, error } = await supabase
-                        .from('profiles')
-                        .select('*')
-                        .limit(50);
+                        .rpc('get_all_users', { current_user_id: currentUser?.id });
                     
                     if (error) {
                         console.error('Supabase error:', error);
