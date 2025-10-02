@@ -2499,42 +2499,19 @@
                 }
                 
                 try {
-                    // Get follows count and user stats
-                    const [followsResult, messagesResult, groupsResult, channelsResult] = await Promise.all([
-                        supabase.from('follows').select('following_id').eq('follower_id', this.currentUser.id),
-                        supabase.from('messages').select('id').eq('sender_id', this.currentUser.id),
-                        supabase.from('groups').select('*').eq('creator_id', this.currentUser.id),
-                        supabase.from('channels').select('*').eq('creator_id', this.currentUser.id)
-                    ]);
+                    // Single optimized query with join
+                    const { data: followsData } = await supabase
+                        .from('follows')
+                        .select('following_id, profiles!follows_following_id_fkey(id, full_name, username, profile_photo, job_title, company, bio)')
+                        .eq('follower_id', this.currentUser.id)
+                        .limit(20);
                     
-                    const followsCount = followsResult.data?.length || 0;
-                    const messagesCount = messagesResult.data?.length || 0;
-                    const myGroups = groupsResult.data || [];
-                    const myChannels = channelsResult.data || [];
-                    
-                    if (!followsResult.data || followsResult.data.length === 0) {
+                    if (!followsData || followsData.length === 0) {
                         homeFeed.innerHTML = `
                             <div class="feed-header">
                                 <h2><i class="fas fa-briefcase"></i> Welcome, ${this.currentUser.full_name || this.currentUser.username}</h2>
                                 <p>Your professional dashboard</p>
-                                <div class="feed-stats">
-                                    <div class="stat-item">
-                                        <div class="stat-number">${followsCount}</div>
-                                        <div class="stat-label">Connections</div>
-                                    </div>
-                                    <div class="stat-item">
-                                        <div class="stat-number">${messagesCount}</div>
-                                        <div class="stat-label">Messages</div>
-                                    </div>
-                                    <div class="stat-item">
-                                        <div class="stat-number">∞</div>
-                                        <div class="stat-label">Opportunities</div>
-                                    </div>
-                                </div>
                             </div>
-                            
-
-                            
                             <div class="business-card">
                                 <h3><i class="fas fa-rocket"></i> Start Building Your Network</h3>
                                 <p>Connect with professionals in your industry and expand your business reach</p>
@@ -2546,55 +2523,36 @@
                         return;
                     }
                     
-                    const userIds = followsResult.data.map(f => f.following_id);
-                    const { data: users, error: usersError } = await supabase
-                        .from('profiles')
-.select('*')
-                        .in('id', userIds);
-                    
-                    if (usersError) throw usersError;
-                    
+                    const users = followsData.map(f => f.profiles).filter(Boolean);
                     homeFeed.innerHTML = `
-                        <!-- Messages Section -->
-                        <div class="business-card" style="margin-bottom: 20px;">
-                            <h3><i class="fas fa-comments"></i> Messages</h3>
-                            <div style="margin-top: 16px;">
-                                ${await this.getUnreadConversations()}
-                            </div>
+                        <div class="feed-header">
+                            <h2><i class="fas fa-briefcase"></i> Welcome, ${this.currentUser.full_name || this.currentUser.username}</h2>
+                            <p>${users.length} connections in your network</p>
                         </div>
-                        
-                        <!-- Connections Section -->
-                        ${(await Promise.all(users.map(async user => {
-                            const unreadCount = await this.getUnreadMessageCount(user.id);
-                            return `
+                        ${users.map(user => `
                             <div class="followed-user">
                                 <div class="followed-user-avatar">
                                     ${user.profile_photo ? 
                                         `<img src="${user.profile_photo}">` :
                                         (user.full_name || user.username).charAt(0).toUpperCase()
                                     }
-
-                                    ${unreadCount > 0 ? `<div class="unread-badge">${unreadCount}</div>` : ''}
                                 </div>
                                 <div class="followed-user-info">
                                     <div class="followed-user-name">${user.full_name || user.username}</div>
                                     ${user.job_title ? `<div class="followed-user-job"><i class="fas fa-briefcase"></i> ${user.job_title}</div>` : ''}
                                     ${user.company ? `<div class="followed-user-company">at ${user.company}</div>` : ''}
                                     ${user.bio ? `<div class="followed-user-bio">${user.bio}</div>` : ''}
-                                    ${unreadCount > 0 ? `<div class="followed-user-status">• ${unreadCount} unread messages</div>` : ''}
                                 </div>
                                 <div class="action-buttons">
                                     <button class="message-btn" onclick="window.chatManager.startConversation('${user.id}')">
-                                        <i class="fas fa-comment"></i> Message ${unreadCount > 0 ? `(${unreadCount})` : ''}
+                                        <i class="fas fa-comment"></i> Message
                                     </button>
                                     <button class="profile-btn" onclick="window.authManager.showUserProfile('${user.id}')">
                                         <i class="fas fa-user"></i> Profile
                                     </button>
                                 </div>
                             </div>
-                        `;
-                        }))).join('')}
-
+                        `).join('')}
                     `;
                     
                 } catch (error) {
@@ -2604,7 +2562,7 @@
                             <i class="fas fa-exclamation-triangle"></i>
                             <h3>Connection Error</h3>
                             <p>Unable to load your professional network. Please check your connection.</p>
-                            <button class="btn btn-primary" onclick="window.location.reload()" style="margin-top: 16px;">
+                            <button class="btn btn-primary" onclick="window.authManager.loadHomeFeed()" style="margin-top: 16px;">
                                 <i class="fas fa-refresh"></i> Retry
                             </button>
                         </div>
@@ -3459,28 +3417,7 @@
             }
 
 
-            async getUnreadMessageCount(userId) {
-                if (!isSupabaseEnabled) return 0;
-                
-                try {
-                    const conversationId = this.getConversationId(this.currentUser.id, userId);
-                    
-                    const { data, error } = await supabase
-                        .rpc('get_unread_count', {
-                            p_user_id: this.currentUser.id,
-                            p_conversation_id: conversationId
-                        });
-                    
-                    if (error) {
-                        console.error('RPC error:', error);
-                        return 0;
-                    }
-                    return data || 0;
-                } catch (error) {
-                    console.error('Error getting unread count:', error);
-                    return 0;
-                }
-            }
+
             
             async getConversationsList() {
                 if (!isSupabaseEnabled) return '<div class="welcome-message"><i class="fas fa-comments"></i><h3>No conversations yet</h3><p>Start messaging your connections</p></div>';
@@ -3561,88 +3498,7 @@
                 return userIds.find(id => id !== this.currentUser.id);
             }
             
-            async getUnreadConversations() {
-                if (!isSupabaseEnabled) return '<div style="color: rgba(255,255,255,0.7); font-size: 14px; text-align: center; padding: 20px;">No unread messages</div>';
-                
-                try {
-                    // Get all messages sent TO the current user that are unread
-                    const { data: unreadMessages, error } = await supabase
-                        .from('messages')
-                        .select('*')
-                        .neq('sender_id', this.currentUser.id) // Only messages NOT sent by current user
-                        .like('conversation_id', `%${this.currentUser.id}%`) // Only conversations involving current user
-                        .order('created_at', { ascending: false });
-                    
-                    if (error) throw error;
-                    
-                    const conversations = new Map();
-                    
-                    for (const message of unreadMessages) {
-                        const conversationId = message.conversation_id;
-                        const lastReadTime = this.getLastReadTime(conversationId);
-                        
-                        // Only include if message is newer than last read time
-                        if (new Date(message.created_at) > new Date(lastReadTime)) {
-                            if (!conversations.has(conversationId)) {
-                                const otherUserId = message.sender_id;
-                                const { data: otherUser } = await supabase
-                                    .from('profiles')
-                                    .select('*')
-                                    .eq('id', otherUserId)
-                                    .single();
-                                
-                                const unreadCount = await this.getUnreadMessageCount(otherUserId);
-                                
-                                if (unreadCount > 0) {
-                                    conversations.set(conversationId, {
-                                        user: otherUser,
-                                        lastMessage: message,
-                                        unreadCount
-                                    });
-                                }
-                            }
-                        }
-                    }
-                    
-                    if (conversations.size === 0) {
-                        return '<div style="color: rgba(255,255,255,0.7); font-size: 14px; text-align: center; padding: 20px;">No unread messages</div>';
-                    }
-                    
-                    return Array.from(conversations.values()).map(conv => {
-                        const user = conv.user;
-                        const lastMsg = conv.lastMessage;
-                        const unreadCount = conv.unreadCount;
-                        const time = new Date(lastMsg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                        
-                        return `
-                            <div onclick="window.chatManager.startConversation('${user.id}')" style="display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(255,255,255,0.1); border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.15)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">
-                                <div style="position: relative;">
-                                    <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 16px; color: white; font-weight: 600;">
-                                        ${user.profile_photo ? 
-                                            `<img src="${user.profile_photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">` :
-                                            (user.full_name || user.username).charAt(0).toUpperCase()
-                                        }
-                                    </div>
-                                    <div style="position: absolute; top: -3px; right: -3px; background: #ef4444; color: white; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; font-weight: 600; display: flex; align-items: center; justify-content: center; border: 2px solid rgba(30, 64, 175, 1);">${unreadCount}</div>
-                                </div>
-                                <div style="flex: 1; min-width: 0;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
-                                        <div style="font-weight: 600; font-size: 14px; color: rgba(255,255,255,0.95);">${user.full_name || user.username}</div>
-                                        <div style="font-size: 11px; color: rgba(255,255,255,0.7);">${time}</div>
-                                    </div>
-                                    <div style="font-size: 12px; color: rgba(255,255,255,0.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                        ${lastMsg.type === 'file' ? '📎 ' + lastMsg.file_name : lastMsg.text}
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    }).join('');
-                    
-                } catch (error) {
-                    console.error('Error loading unread conversations:', error);
-                    return '<div style="color: rgba(255,255,255,0.7); font-size: 14px; text-align: center; padding: 20px;">Error loading messages</div>';
-                }
-            }
+
             
             getConversationId(userId1, userId2) {
                 return [userId1, userId2].sort().join('_');
