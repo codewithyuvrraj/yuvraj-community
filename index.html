@@ -3668,41 +3668,25 @@
             
             async viewGroupMembers(groupId, groupName) {
                 try {
-                    let memberProfiles = [];
+                    // Get group members with profiles using join
+                    const { data: members, error } = await supabase
+                        .from('group_members')
+                        .select(`
+                            user_id,
+                            profiles!group_members_user_id_fkey(
+                                id,
+                                full_name,
+                                username,
+                                profile_photo,
+                                job_title,
+                                company
+                            )
+                        `)
+                        .eq('group_id', groupId);
                     
-                    try {
-                        const { data, error } = await supabase
-                            .rpc('get_group_members_with_profiles', { group_id_param: groupId });
-                        
-                        if (!error && data) {
-                            memberProfiles = data.map(member => ({
-                                id: member.user_id,
-                                full_name: member.full_name,
-                                username: member.username,
-                                profile_photo: member.profile_photo,
-                                job_title: member.job_title,
-                                company: member.company
-                            }));
-                        } else {
-                            throw new Error('Function not available');
-                        }
-                    } catch (funcError) {
-                        const { data: members, error } = await supabase
-                            .from('group_members')
-                            .select('user_id')
-                            .eq('group_id', groupId);
-                        
-                        if (error) throw error;
-                        
-                        for (let member of members || []) {
-                            const { data: profile } = await supabase
-                                .from('profiles')
-                                .select('*')
-                                .eq('id', member.user_id)
-                                .single();
-                            if (profile) memberProfiles.push(profile);
-                        }
-                    }
+                    if (error) throw error;
+                    
+                    const memberProfiles = members?.map(member => member.profiles).filter(Boolean) || [];
                     
                     this.displayMembersModal(memberProfiles, groupName, 'group', groupId);
                     
