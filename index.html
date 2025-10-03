@@ -24,6 +24,10 @@
     <script src="chat-settings.js"></script>
     <!-- Chat Lock -->
     <script src="chat-lock.js"></script>
+    <!-- Lock Manager -->
+    <script src="lock-manager.js"></script>
+    <!-- Lock Manager -->
+    <script src="lock-manager.js"></script>
     
     <style>
         /* Reset and Base Styles */
@@ -2404,7 +2408,10 @@
                                     <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px;">
                                         <h4><i class="fas fa-user-cog"></i> Account</h4>
                                         <div style="display: flex; gap: 8px; align-items: center;">
-                                            <svg onclick="window.chatLockManager.showChatLockSettings()" style="width: 20px; height: 20px; cursor: pointer; fill: #6b7280; transition: fill 0.2s;" onmouseover="this.style.fill='#374151'" onmouseout="this.style.fill='#6b7280'" viewBox="0 0 24 24" title="Chat Lock Settings">
+                                            <svg onclick="window.lockManager.showUnlockOptions()" style="width: 20px; height: 20px; cursor: pointer; fill: #10b981; transition: fill 0.2s;" onmouseover="this.style.fill='#059669'" onmouseout="this.style.fill='#10b981'" viewBox="0 0 24 24" title="Unlock Features">
+                                                <path d="M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10A2,2 0 0,1 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6H15A3,3 0 0,0 12,3A3,3 0 0,0 9,6V8H18M12,17A2,2 0 0,0 14,15A2,2 0 0,0 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17Z"/>
+                                            </svg>
+                                            <svg onclick="window.lockManager.showLockOptions()" style="width: 20px; height: 20px; cursor: pointer; fill: #f59e0b; transition: fill 0.2s;" onmouseover="this.style.fill='#d97706'" onmouseout="this.style.fill='#f59e0b'" viewBox="0 0 24 24" title="Lock Features">
                                                 <path d="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z"/>
                                             </svg>
                                             <svg onclick="window.authManager.showUICustomization()" style="width: 20px; height: 20px; cursor: pointer; fill: #6b7280; transition: fill 0.2s;" onmouseover="this.style.fill='#374151'" onmouseout="this.style.fill='#6b7280'" viewBox="0 0 24 24" title="UI Settings">
