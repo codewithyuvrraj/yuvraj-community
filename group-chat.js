@@ -60,9 +60,14 @@ class GroupChatManager {
         const chatStatus = document.getElementById('chatStatus');
         
         if (chatTitle) {
-            chatTitle.textContent = this.currentGroup.name;
+            chatTitle.textContent = this.currentGroup.name + ' 👥';
             chatTitle.style.cursor = 'pointer';
-            chatTitle.onclick = () => this.showGroupMembers();
+            chatTitle.style.textDecoration = 'underline';
+            chatTitle.title = 'Click to view group members';
+            chatTitle.onclick = () => {
+                console.log('Group name clicked, showing members for:', this.currentGroup.name);
+                this.showGroupMembers();
+            };
         }
         
         if (chatStatus) {
@@ -294,30 +299,55 @@ class GroupChatManager {
         if (!this.currentGroup) return;
         
         try {
-            // Get group members
-            const { data: members, error } = await window.supabase
-                .from('group_members')
-                .select('user_id')
-                .eq('group_id', this.currentGroup.id);
+            // Try using the SQL function first
+            let memberProfiles = [];
             
-            if (error) throw error;
-            
-            // Get member profiles
-            const memberProfiles = [];
-            for (let member of members || []) {
-                const { data: profile } = await window.supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', member.user_id)
-                    .single();
-                if (profile) memberProfiles.push(profile);
+            try {
+                const { data, error } = await window.supabase
+                    .rpc('get_group_members_with_profiles', { group_id_param: this.currentGroup.id });
+                
+                if (!error && data) {
+                    memberProfiles = data.map(member => ({
+                        id: member.user_id,
+                        full_name: member.full_name,
+                        username: member.username,
+                        profile_photo: member.profile_photo,
+                        job_title: member.job_title,
+                        company: member.company
+                    }));
+                } else {
+                    throw new Error('Function not available');
+                }
+            } catch (funcError) {
+                console.log('SQL function not available, using fallback method');
+                
+                // Fallback: Get group members directly
+                const { data: members, error } = await window.supabase
+                    .from('group_members')
+                    .select('user_id')
+                    .eq('group_id', this.currentGroup.id);
+                
+                if (error) throw error;
+                
+                // Get member profiles
+                for (let member of members || []) {
+                    const { data: profile } = await window.supabase
+                        .from('profiles')
+                        .select('*')
+                        .eq('id', member.user_id)
+                        .single();
+                    if (profile) memberProfiles.push(profile);
+                }
             }
             
             this.displayGroupMembersModal(memberProfiles);
             
         } catch (error) {
             console.error('Error loading group members:', error);
-            window.authManager.showNotification('Failed to load group members', 'error');
+            window.authManager.showNotification('Failed to load group members: ' + error.message, 'error');
+            
+            // Show a simple modal with error info
+            this.displayGroupMembersModal([]);
         }
     }
     
@@ -415,6 +445,8 @@ class GroupChatManager {
         if (chatTitle) {
             chatTitle.textContent = 'BusinessConnect';
             chatTitle.style.cursor = 'default';
+            chatTitle.style.textDecoration = 'none';
+            chatTitle.title = '';
             chatTitle.onclick = null;
         }
         if (chatStatus) chatStatus.innerHTML = '';
