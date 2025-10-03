@@ -28,6 +28,8 @@
     <script src="lock-manager.js"></script>
     <!-- Group Chat Manager -->
     <script src="group-chat.js"></script>
+    <!-- Group Notifications -->
+    <script src="group-notifications.js"></script>
     
     <style>
         /* Reset and Base Styles */
@@ -2938,6 +2940,7 @@
             async showNotifications() {
                 let notifications = [];
                 let joinRequests = [];
+                let groupNotifications = [];
                 
                 if (isSupabaseEnabled) {
                     try {
@@ -2950,6 +2953,16 @@
                             .limit(20);
                         
                         notifications = notificationData || [];
+                        
+                        // Get group notifications
+                        const { data: groupNotificationData } = await supabase
+                            .from('group_notifications')
+                            .select('*')
+                            .eq('user_id', this.currentUser.id)
+                            .order('created_at', { ascending: false })
+                            .limit(20);
+                        
+                        groupNotifications = groupNotificationData || [];
                         
                         // Get pending channel join requests for user's channels
                         const { data: requests } = await supabase
@@ -3011,6 +3024,31 @@
                                 </div>
                             ` : ''}
                             
+                            ${groupNotifications.length > 0 ? `
+                                <div style="margin-bottom: 20px;">
+                                    <h4 style="margin-bottom: 12px; color: #374151; display: flex; align-items: center; gap: 8px;"><i class="fas fa-users" style="color: #10b981;"></i> Group Notifications</h4>
+                                    ${groupNotifications.map(notification => `
+                                        <div onclick="window.authManager.handleGroupNotificationClick('${notification.id}', '${notification.group_id || notification.channel_id}', '${notification.notification_type}')" style="background: ${notification.read ? '#f8fafc' : '#f0fdf4'}; padding: 16px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid ${notification.read ? '#e5e7eb' : '#10b981'}; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='${notification.read ? '#f1f5f9' : '#dcfce7'}'" onmouseout="this.style.background='${notification.read ? '#f8fafc' : '#f0fdf4'}'">
+                                            <div style="display: flex; align-items: center; gap: 12px;">
+                                                <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #10b981, #059669); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 16px; overflow: hidden; flex-shrink: 0;">
+                                                    ${notification.data.adder_photo ? 
+                                                        `<img src="${notification.data.adder_photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">` :
+                                                        (notification.data.adder_name || notification.data.adder_username).charAt(0).toUpperCase()
+                                                    }
+                                                </div>
+                                                <div style="flex: 1; min-width: 0;">
+                                                    <div style="font-weight: ${notification.read ? '500' : '600'}; color: #374151; margin-bottom: 2px; font-size: 14px;">
+                                                        <span onclick="event.stopPropagation(); window.authManager.showUserProfile('${notification.added_by_user_id}')" style="color: #10b981; cursor: pointer; text-decoration: none; font-weight: 600;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${notification.data.adder_name}</span> added you to ${notification.notification_type === 'group_addition' ? 'group' : 'channel'} "${notification.data.group_name || notification.data.channel_name}"
+                                                    </div>
+                                                    <div style="font-size: 12px; color: #6b7280;">${this.formatNotificationTime(notification.created_at)}</div>
+                                                </div>
+                                                ${!notification.read ? `<div style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; flex-shrink: 0;"></div>` : ''}
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : ''}
+                            
                             ${joinRequests.length > 0 ? `
                                 <div style="margin-bottom: 20px;">
                                     <h4 style="margin-bottom: 12px; color: #374151;">Channel Join Requests</h4>
@@ -3035,7 +3073,7 @@
                                 </div>
                             ` : ''}
                             
-                            ${notifications.length === 0 && joinRequests.length === 0 ? `
+                            ${notifications.length === 0 && groupNotifications.length === 0 && joinRequests.length === 0 ? `
                                 <div style="text-align: center; padding: 40px 20px;">
                                     <i class="fas fa-bell-slash" style="font-size: 48px; color: #d1d5db; margin-bottom: 16px;"></i>
                                     <h3>No New Notifications</h3>
@@ -3961,11 +3999,38 @@
                 
                 if (isSupabaseEnabled) {
                     try {
-                        const { data, error } = await supabase
-                            .rpc('get_user_joined_groups', { user_id_param: this.currentUser.id });
+                        // Get groups where user is a member
+                        const { data: memberGroups, error } = await supabase
+                            .from('group_members')
+                            .select('group_id')
+                            .eq('user_id', this.currentUser.id);
                         
                         if (error) throw error;
-                        groups = data || [];
+                        
+                        const groupIds = memberGroups?.map(m => m.group_id) || [];
+                        
+                        if (groupIds.length > 0) {
+                            // Get group details with creator info
+                            const { data: groupsData, error: groupsError } = await supabase
+                                .from('groups')
+                                .select(`
+                                    id,
+                                    name,
+                                    description,
+                                    creator_id,
+                                    profiles!groups_creator_id_fkey(full_name, username)
+                                `)
+                                .in('id', groupIds);
+                            
+                            if (!groupsError && groupsData) {
+                                groups = groupsData.map(group => ({
+                                    group_id: group.id,
+                                    group_name: group.name,
+                                    group_description: group.description,
+                                    creator_name: group.profiles?.full_name || group.profiles?.username || 'Unknown'
+                                }));
+                            }
+                        }
                     } catch (error) {
                         console.error('Error loading joined groups:', error);
                     }
@@ -3977,7 +4042,7 @@
                     <div class="settings-modal" style="max-width: 500px; max-height: 90vh;">
                         <div class="settings-header" style="background: #3b82f6; color: white;">
                             <h3><i class="fas fa-user-plus"></i> Joined Groups</h3>
-                            <button class="close-btn" onclick="document.body.style.overflow='auto'; this.closest('.overlay').remove();" style="color: white;">
+                            <button class="close-btn" onclick="this.closest('.overlay').remove();" style="color: white;">
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
@@ -3990,13 +4055,16 @@
                                 </div>
                             ` : `
                                 ${groups.map(group => `
-                                    <div class="group-item" data-group-id="${group.group_id}" onclick="window.authManager.openGroup('${group.group_id}')">
-                                        <div class="group-icon" style="position: relative;">${group.group_name.charAt(0).toUpperCase()}</div>
-                                        <div class="group-info">
-                                            <div class="group-name">${group.group_name}</div>
-                                            <div class="group-description">${group.group_description || 'No description'}</div>
-                                            <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">Added by ${group.creator_name}</div>
+                                    <div onclick="window.groupChatManager.openGroup('${group.group_id}'); this.closest('.overlay').remove();" style="display: flex; align-items: center; padding: 16px; background: #eff6ff; border-radius: 12px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; border-left: 4px solid #3b82f6;">
+                                        <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #1d4ed8); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 18px; margin-right: 16px;">
+                                            ${group.group_name.charAt(0).toUpperCase()}
                                         </div>
+                                        <div style="flex: 1; text-align: left;">
+                                            <div style="font-weight: 600; font-size: 16px; color: #1f2937; margin-bottom: 4px;">${group.group_name} <span style="background: #3b82f6; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px;">MEMBER</span></div>
+                                            <div style="color: #6b7280; font-size: 14px; margin-bottom: 4px;">${group.group_description || 'No description'}</div>
+                                            <div style="font-size: 12px; color: #6b7280;">Added by ${group.creator_name}</div>
+                                        </div>
+                                        <i class="fas fa-chevron-right" style="color: #3b82f6;"></i>
                                     </div>
                                 `).join('')}
                             `}
@@ -4004,8 +4072,6 @@
                     </div>
                 `;
                 document.body.appendChild(modal);
-                
-
             }
             
             async showJoinedChannels() {
@@ -4843,15 +4909,24 @@
                 if (!isSupabaseEnabled || !this.currentUser) return;
                 
                 try {
-                    const { data: count } = await supabase
+                    // Get follow notifications count
+                    const { data: followCount } = await supabase
                         .rpc('get_unread_notification_count', { user_id: this.currentUser.id });
+                    
+                    // Get group notifications count
+                    let groupCount = 0;
+                    if (window.groupNotificationManager) {
+                        groupCount = await window.groupNotificationManager.getUnreadGroupNotificationsCount(this.currentUser.id);
+                    }
+                    
+                    const totalCount = (followCount || 0) + (groupCount || 0);
                     
                     const badge = document.getElementById('notificationBadge');
                     const notificationBtn = document.getElementById('notificationsBtn');
                     
                     if (badge && notificationBtn) {
-                        if (count && count > 0) {
-                            badge.textContent = count > 99 ? '99+' : count;
+                        if (totalCount > 0) {
+                            badge.textContent = totalCount > 99 ? '99+' : totalCount;
                             badge.style.display = 'flex';
                             notificationBtn.style.animation = 'shake 0.5s ease-in-out infinite';
                         } else {
@@ -4890,6 +4965,41 @@
                 
                 // Close notifications modal
                 document.querySelector('.overlay').remove();
+                
+                // Show user profile
+                this.showUserProfile(followerId);
+                
+                // Update notification badge
+                this.updateNotificationBadge();
+            }
+            
+            async handleGroupNotificationClick(notificationId, groupOrChannelId, notificationType) {
+                // Mark group notification as read
+                if (isSupabaseEnabled && window.groupNotificationManager) {
+                    try {
+                        await window.groupNotificationManager.markGroupNotificationRead(notificationId, this.currentUser.id);
+                    } catch (error) {
+                        console.error('Error marking group notification as read:', error);
+                    }
+                }
+                
+                // Close notifications modal
+                document.querySelector('.overlay').remove();
+                
+                // Open the group or channel
+                if (notificationType === 'group_addition') {
+                    if (window.groupChatManager) {
+                        window.groupChatManager.openGroup(groupOrChannelId);
+                    }
+                } else if (notificationType === 'channel_addition') {
+                    if (window.groupChatManager) {
+                        window.groupChatManager.openChannel(groupOrChannelId);
+                    }
+                }
+                
+                // Update notification badge
+                this.updateNotificationBadge();
+            }verlay').remove();
                 
                 // Show follower's profile
                 this.showUserProfile(followerId);

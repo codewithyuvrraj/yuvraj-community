@@ -433,6 +433,96 @@ class GroupChatManager {
             window.authManager.showNotification('Failed to follow user', 'error');
         }
     }
+    
+    // Add user to group and send notification
+    async addUserToGroup(groupId, userId) {
+        try {
+            // Add user to group_members table
+            const { error: memberError } = await window.supabase
+                .from('group_members')
+                .insert({
+                    group_id: groupId,
+                    user_id: userId,
+                    added_by: window.authManager.currentUser.id
+                });
+            
+            if (memberError) {
+                if (memberError.code === '23505') {
+                    window.authManager.showNotification('User is already a member of this group', 'error');
+                    return false;
+                }
+                throw memberError;
+            }
+            
+            // Send notification to the added user
+            if (window.groupNotificationManager) {
+                await window.groupNotificationManager.notifyGroupAddition(
+                    groupId, 
+                    userId, 
+                    window.authManager.currentUser.id
+                );
+            }
+            
+            window.authManager.showNotification('User added to group successfully!', 'success');
+            return true;
+            
+        } catch (error) {
+            console.error('Error adding user to group:', error);
+            window.authManager.showNotification('Failed to add user to group', 'error');
+            return false;
+        }
+    }
+    
+    // Add user to channel and send notification
+    async addUserToChannel(channelId, userId) {
+        try {
+            // Add user to channel_members table
+            const { error: memberError } = await window.supabase
+                .from('channel_members')
+                .insert({
+                    channel_id: channelId,
+                    user_id: userId,
+                    added_by: window.authManager.currentUser.id
+                });
+            
+            if (memberError) {
+                if (memberError.code === '23505') {
+                    window.authManager.showNotification('User is already a member of this channel', 'error');
+                    return false;
+                }
+                throw memberError;
+            }
+            
+            // Send notification to the added user
+            if (window.groupNotificationManager) {
+                await window.groupNotificationManager.notifyChannelAddition(
+                    channelId, 
+                    userId, 
+                    window.authManager.currentUser.id
+                );
+            }
+            
+            window.authManager.showNotification('User added to channel successfully!', 'success');
+            return true;
+            
+        } catch (error) {
+            console.error('Error adding user to channel:', error);
+            window.authManager.showNotification('Failed to add user to channel', 'error');
+            return false;
+        }
+    }
+    
+    // Open group chat
+    async openGroup(groupId) {
+        await this.startGroupChat(groupId);
+    }
+    
+    // Open channel (similar to group but for channels)
+    async openChannel(channelId) {
+        // For now, channels work similar to groups
+        // You can extend this for channel-specific functionality
+        await this.startGroupChat(channelId);
+    }
 
     cleanup() {
         this.stopPolling();
