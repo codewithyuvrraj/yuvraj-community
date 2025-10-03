@@ -4999,7 +4999,24 @@
                 
                 // Update notification badge
                 this.updateNotificationBadge();
-            }verlay').remove();
+            }
+            
+            async handleNotificationClick(notificationId, followerId) {
+                // Mark notification as read
+                if (isSupabaseEnabled) {
+                    try {
+                        await supabase
+                            .rpc('mark_notification_read', { 
+                                notification_id: notificationId, 
+                                user_id: this.currentUser.id 
+                            });
+                    } catch (error) {
+                        console.error('Error marking notification as read:', error);
+                    }
+                }
+                
+                // Close notifications modal
+                document.querySelector('.overlay').remove();
                 
                 // Show follower's profile
                 this.showUserProfile(followerId);
