@@ -461,6 +461,7 @@ class GroupChatManager {
                     userId, 
                     window.authManager.currentUser.id
                 );
+                console.log('Group notification sent to user:', userId);
             }
             
             window.authManager.showNotification('User added to group successfully!', 'success');
@@ -500,6 +501,7 @@ class GroupChatManager {
                     userId, 
                     window.authManager.currentUser.id
                 );
+                console.log('Channel notification sent to user:', userId);
             }
             
             window.authManager.showNotification('User added to channel successfully!', 'success');

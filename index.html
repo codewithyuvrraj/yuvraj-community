@@ -4818,6 +4818,24 @@
                 return 'Active';
             }
             
+            async testAddUserToGroup() {
+                const userId = document.getElementById('testUserId')?.value.trim();
+                const groupId = document.getElementById('testGroupId')?.value;
+                
+                if (!userId || !groupId) {
+                    this.showNotification('Please enter User ID and select a Group', 'error');
+                    return;
+                }
+                
+                if (window.groupChatManager) {
+                    const success = await window.groupChatManager.addUserToGroup(groupId, userId);
+                    if (success) {
+                        document.getElementById('testUserId').value = '';
+                        document.getElementById('testGroupId').value = '';
+                    }
+                }
+            }
+            
             checkMessageLockAndStart(userId) {
                 console.log('Checking message lock for user:', userId);
                 console.log('Lock manager available:', !!window.lockManager);
