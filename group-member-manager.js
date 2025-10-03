@@ -1,13 +1,13 @@
 // Group Member Manager - Handle member operations
 class GroupMemberManager {
-    constructor(supabase) {
-        this.supabase = supabase;
+    constructor() {
+        // Use global supabase instance
     }
 
     async removeUserFromGroup(groupId, userId, currentUserId) {
         try {
             // Check if current user is the group creator
-            const { data: group, error: groupError } = await this.supabase
+            const { data: group, error: groupError } = await window.supabase
                 .from('groups')
                 .select('creator_id')
                 .eq('id', groupId)
@@ -20,7 +20,7 @@ class GroupMemberManager {
             }
 
             // Remove user from group_members table
-            const { error } = await this.supabase
+            const { error } = await window.supabase
                 .from('group_members')
                 .delete()
                 .eq('group_id', groupId)
@@ -38,7 +38,7 @@ class GroupMemberManager {
     async removeUserFromChannel(channelId, userId, currentUserId) {
         try {
             // Check if current user is the channel creator
-            const { data: channel, error: channelError } = await this.supabase
+            const { data: channel, error: channelError } = await window.supabase
                 .from('channels')
                 .select('creator_id')
                 .eq('id', channelId)
@@ -51,7 +51,7 @@ class GroupMemberManager {
             }
 
             // Remove user from channel_members table
-            const { error } = await this.supabase
+            const { error } = await window.supabase
                 .from('channel_members')
                 .delete()
                 .eq('channel_id', channelId)
@@ -126,5 +126,5 @@ class GroupMemberManager {
 
 // Initialize globally
 if (window.supabase) {
-    window.groupMemberManager = new GroupMemberManager(window.supabase);
+    window.groupMemberManager = new GroupMemberManager();
 }
