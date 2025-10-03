@@ -191,11 +191,13 @@ class LockManager {
                 </div>
                 <div class="settings-content" style="padding: 20px; text-align: center;">
                     <p style="margin-bottom: 16px;">Enter password to unlock ${featureType}</p>
-                    <input type="password" id="unlockPassword" placeholder="Enter password" style="width: 100%; padding: 8px; margin-bottom: 16px; border: 1px solid #e5e7eb; border-radius: 6px;">
-                    <div style="display: flex; gap: 8px;">
-                        <button onclick="this.closest('.overlay').remove(); window.lockManager.pendingUserId = null;" style="flex: 1; padding: 8px; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer;">Cancel</button>
-                        <button onclick="window.lockManager.confirmUnlock('${featureType}')" style="flex: 1; padding: 8px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer;">Unlock</button>
-                    </div>
+                    <form onsubmit="event.preventDefault(); window.lockManager.confirmUnlock('${featureType}');">
+                        <input type="password" id="unlockPassword" placeholder="Enter password" style="width: 100%; padding: 8px; margin-bottom: 16px; border: 1px solid #e5e7eb; border-radius: 6px;">
+                        <div style="display: flex; gap: 8px;">
+                            <button type="button" onclick="this.closest('.overlay').remove(); window.lockManager.pendingUserId = null;" style="flex: 1; padding: 8px; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer;">Cancel</button>
+                            <button type="submit" style="flex: 1; padding: 8px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer;">Unlock</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         `;

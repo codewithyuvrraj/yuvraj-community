@@ -1,7 +1,30 @@
--- Fix group_messages RLS policies for 401 errors
-ALTER TABLE group_messages ENABLE ROW LEVEL SECURITY;
+-- Drop existing policies to avoid conflicts, then recreate them
+-- This fixes the 401 errors for instant messaging
 
--- Allow users to read messages from groups they are members of
+-- Drop existing group_messages policies if they exist
+DROP POLICY IF EXISTS "Users can read group messages" ON group_messages;
+DROP POLICY IF EXISTS "Users can send group messages" ON group_messages;
+DROP POLICY IF EXISTS "Users can update own group messages" ON group_messages;
+DROP POLICY IF EXISTS "Users can delete own group messages" ON group_messages;
+
+-- Drop existing channel_messages policies if they exist
+DROP POLICY IF EXISTS "Users can read channel messages" ON channel_messages;
+DROP POLICY IF EXISTS "Users can send channel messages" ON channel_messages;
+DROP POLICY IF EXISTS "Users can update own channel messages" ON channel_messages;
+DROP POLICY IF EXISTS "Users can delete own channel messages" ON channel_messages;
+
+-- Drop existing messages policies if they exist
+DROP POLICY IF EXISTS "Users can read their messages" ON messages;
+DROP POLICY IF EXISTS "Users can send messages" ON messages;
+DROP POLICY IF EXISTS "Users can update own messages" ON messages;
+DROP POLICY IF EXISTS "Users can delete own messages" ON messages;
+
+-- Enable RLS on all tables
+ALTER TABLE group_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE channel_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+
+-- Recreate group_messages policies
 CREATE POLICY "Users can read group messages" ON group_messages
     FOR SELECT USING (
         group_id IN (
@@ -12,7 +35,6 @@ CREATE POLICY "Users can read group messages" ON group_messages
         )
     );
 
--- Allow users to insert messages to groups they are members of
 CREATE POLICY "Users can send group messages" ON group_messages
     FOR INSERT WITH CHECK (
         sender_id = auth.uid() AND
@@ -24,18 +46,13 @@ CREATE POLICY "Users can send group messages" ON group_messages
         ))
     );
 
--- Allow users to update their own messages
 CREATE POLICY "Users can update own group messages" ON group_messages
     FOR UPDATE USING (sender_id = auth.uid());
 
--- Allow users to delete their own messages
 CREATE POLICY "Users can delete own group messages" ON group_messages
     FOR DELETE USING (sender_id = auth.uid());
 
--- Fix channel_messages RLS policies
-ALTER TABLE channel_messages ENABLE ROW LEVEL SECURITY;
-
--- Allow users to read messages from channels they are members of
+-- Recreate channel_messages policies
 CREATE POLICY "Users can read channel messages" ON channel_messages
     FOR SELECT USING (
         channel_id IN (
@@ -46,7 +63,6 @@ CREATE POLICY "Users can read channel messages" ON channel_messages
         )
     );
 
--- Allow users to insert messages to channels they are members of
 CREATE POLICY "Users can send channel messages" ON channel_messages
     FOR INSERT WITH CHECK (
         sender_id = auth.uid() AND
@@ -58,32 +74,24 @@ CREATE POLICY "Users can send channel messages" ON channel_messages
         ))
     );
 
--- Allow users to update their own messages
 CREATE POLICY "Users can update own channel messages" ON channel_messages
     FOR UPDATE USING (sender_id = auth.uid());
 
--- Allow users to delete their own messages
 CREATE POLICY "Users can delete own channel messages" ON channel_messages
     FOR DELETE USING (sender_id = auth.uid());
 
--- Fix messages table RLS policies for instant messaging
-ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
-
--- Allow users to read messages they sent or received
+-- Recreate messages policies for instant messaging (THIS IS THE KEY FIX)
 CREATE POLICY "Users can read their messages" ON messages
     FOR SELECT USING (
         sender_id = auth.uid() OR 
         receiver_id = auth.uid()
     );
 
--- Allow users to send messages
 CREATE POLICY "Users can send messages" ON messages
     FOR INSERT WITH CHECK (sender_id = auth.uid());
 
--- Allow users to update their own messages
 CREATE POLICY "Users can update own messages" ON messages
     FOR UPDATE USING (sender_id = auth.uid());
 
--- Allow users to delete their own messages
 CREATE POLICY "Users can delete own messages" ON messages
     FOR DELETE USING (sender_id = auth.uid());

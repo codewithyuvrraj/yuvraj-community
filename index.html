@@ -4879,34 +4879,14 @@
             }
             
             checkMessageLockAndStart(userId) {
-                console.log('Checking message lock for user:', userId);
-                console.log('Lock manager available:', !!window.lockManager);
+                console.log('Starting conversation with user:', userId);
                 
-                if (!window.lockManager) {
-                    console.log('Lock manager not available, starting conversation normally');
-                    if (window.chatManager) {
-                        window.chatManager.startConversation(userId);
-                    }
-                    return;
-                }
-                
-                const isLocked = window.lockManager.isFeatureLocked('messages');
-                const isUnlocked = window.lockManager.isFeatureUnlocked('messages');
-                
-                console.log('Messages locked:', isLocked);
-                console.log('Messages temporarily unlocked:', isUnlocked);
-                
-                // Check if messages feature is locked
-                if (isLocked && !isUnlocked) {
-                    console.log('Showing unlock modal');
-                    window.lockManager.showUnlockModal('messages', userId);
-                    return;
-                }
-                
-                console.log('Starting conversation normally');
-                // If not locked or temporarily unlocked, start conversation normally
+                // Bypass lock system - always allow messaging
                 if (window.chatManager) {
                     window.chatManager.startConversation(userId);
+                } else {
+                    console.error('Chat manager not available');
+                    this.showNotification('Chat system not ready. Please refresh the page.', 'error');
                 }
             }
             
