@@ -16,14 +16,24 @@ class SimpleInstantChat {
         const messageInput = document.getElementById('messageInput');
         
         if (sendBtn) {
-            sendBtn.onclick = () => this.sendInstant();
+            sendBtn.onclick = () => {
+                if (window.groupChatManager && window.groupChatManager.currentGroup) {
+                    window.groupChatManager.sendGroupMessage();
+                } else {
+                    this.sendInstant();
+                }
+            };
         }
         
         if (messageInput) {
             messageInput.onkeypress = (e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    this.sendInstant();
+                    if (window.groupChatManager && window.groupChatManager.currentGroup) {
+                        window.groupChatManager.sendGroupMessage();
+                    } else {
+                        this.sendInstant();
+                    }
                 }
             };
         }
@@ -72,18 +82,10 @@ class SimpleInstantChat {
         if (!window.authManager || !window.authManager.currentUser) return;
 
         try {
-            // For now, show a placeholder for group functionality
-            this.currentConversation = {
-                groupId,
-                isGroup: true,
-                conversationId: 'group_' + groupId
-            };
-
-            this.showChat();
-            this.updateGroupHeader(groupId);
-            await this.loadGroupMessages();
-            
-            this.startPolling();
+            // Use the dedicated group chat manager
+            if (window.groupChatManager) {
+                await window.groupChatManager.startGroupChat(groupId);
+            }
         } catch (error) {
             console.error('Start group conversation error:', error);
         }
@@ -457,6 +459,11 @@ class SimpleInstantChat {
                     window.authManager.loadHomeFeed();
                 }
             }, 300);
+        }
+        
+        // Also cleanup group chat if active
+        if (window.groupChatManager && window.groupChatManager.currentGroup) {
+            window.groupChatManager.cleanup();
         }
         
         this.currentConversation = null;

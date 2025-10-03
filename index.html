@@ -26,8 +26,8 @@
     <script src="chat-lock.js"></script>
     <!-- Lock Manager -->
     <script src="lock-manager.js"></script>
-    <!-- Lock Manager -->
-    <script src="lock-manager.js"></script>
+    <!-- Group Chat Manager -->
+    <script src="group-chat.js"></script>
     
     <style>
         /* Reset and Base Styles */
@@ -4089,9 +4089,16 @@
             async openGroup(groupId) {
                 this.showNotification('Opening group...', 'success');
                 // Close the modal
-                document.querySelector('.overlay').remove();
-                // Group functionality would be implemented here
-                console.log('Opening group:', groupId);
+                const overlay = document.querySelector('.overlay');
+                if (overlay) overlay.remove();
+                
+                // Start group chat using the group chat manager
+                if (window.groupChatManager) {
+                    await window.groupChatManager.startGroupChat(groupId);
+                } else {
+                    console.error('Group chat manager not available');
+                    this.showNotification('Group chat not available', 'error');
+                }
             }
             
             async openChannel(channelId) {
