@@ -3369,6 +3369,10 @@
                                     <i class="fas fa-undo"></i> Reset to Default
                                 </button>
                                 
+                                <button class="btn" style="background: #8b5cf6; color: white; width: 100%; margin-top: 12px;" onclick="window.authManager.showGroupMembersManager()">
+                                    <i class="fas fa-users"></i> View Members
+                                </button>
+                                
                                 <div id="chatLockFromUISection" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
                                     <button class="btn" id="lockChatFromUIBtn" style="background: #f59e0b; color: white; width: 100%; margin-bottom: 12px;" onclick="window.authManager.toggleChatLockFromUI()">
                                         <i class="fas fa-lock"></i> <span id="lockChatFromUIText">Lock Current Chat</span>
@@ -3420,6 +3424,331 @@
             resetTheme() {
                 localStorage.removeItem('businessconnect_theme');
                 location.reload();
+            }
+            
+            showGroupMembersManager() {
+                const modal = document.createElement('div');
+                modal.className = 'overlay';
+                modal.innerHTML = `
+                    <div class="settings-modal" style="max-width: 500px; max-height: 90vh;">
+                        <div class="settings-header" style="background: #8b5cf6; color: white;">
+                            <h3><i class="fas fa-users"></i> Manage Members</h3>
+                            <button class="close-btn" onclick="this.closest('.overlay').remove()" style="color: white;">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="settings-content" style="max-height: 70vh; overflow-y: auto;">
+                            <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+                                <button class="btn" style="background: #10b981; color: white; flex: 1;" onclick="window.authManager.showMyCreatedGroups()">
+                                    <i class="fas fa-users"></i> My Groups
+                                </button>
+                                <button class="btn" style="background: #f59e0b; color: white; flex: 1;" onclick="window.authManager.showMyCreatedChannels()">
+                                    <i class="fas fa-broadcast-tower"></i> My Channels
+                                </button>
+                            </div>
+                            <div id="membersContent" style="text-align: center; padding: 40px 20px; color: #6b7280;">
+                                <i class="fas fa-users" style="font-size: 48px; margin-bottom: 16px;"></i>
+                                <h3>Select Groups or Channels</h3>
+                                <p>Choose to view members of your created groups or channels.</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+            
+            async showMyCreatedGroups() {
+                const content = document.getElementById('membersContent');
+                content.innerHTML = `
+                    <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+                        <button class="btn" id="createdGroupsTab" style="background: #10b981; color: white; flex: 1;" onclick="window.authManager.showCreatedGroups()">
+                            <i class="fas fa-plus"></i> Created by Me
+                        </button>
+                        <button class="btn" id="joinedGroupsTab" style="background: #6b7280; color: white; flex: 1;" onclick="window.authManager.showJoinedGroups()">
+                            <i class="fas fa-user-plus"></i> Added by Others
+                        </button>
+                    </div>
+                    <div id="groupsTabContent">
+                        <div style="text-align: center; padding: 40px 20px; color: #6b7280;">
+                            <i class="fas fa-users" style="font-size: 48px; margin-bottom: 16px;"></i>
+                            <h3>Select Tab</h3>
+                            <p>Choose to view groups you created or groups you were added to.</p>
+                        </div>
+                    </div>
+                `;
+                
+                // Auto-show created groups
+                this.showCreatedGroups();
+            }
+            
+            async showCreatedGroups() {
+                try {
+                    // Update tab styling
+                    document.getElementById('createdGroupsTab').style.background = '#10b981';
+                    document.getElementById('joinedGroupsTab').style.background = '#6b7280';
+                    
+                    const { data: groups, error } = await supabase
+                        .from('groups')
+                        .select('*')
+                        .eq('creator_id', this.currentUser.id);
+                    
+                    if (error) throw error;
+                    
+                    const content = document.getElementById('groupsTabContent');
+                    if (groups && groups.length > 0) {
+                        content.innerHTML = groups.map(group => `
+                            <div onclick="window.authManager.viewGroupMembers('${group.id}', '${group.name}')" style="display: flex; align-items: center; padding: 16px; background: #f0fdf4; border-radius: 12px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; border-left: 4px solid #10b981;">
+                                <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #10b981, #059669); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 18px; margin-right: 16px;">
+                                    ${group.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div style="flex: 1; text-align: left;">
+                                    <div style="font-weight: 600; font-size: 16px; color: #1f2937; margin-bottom: 4px;">${group.name} <span style="background: #10b981; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px;">CREATOR</span></div>
+                                    <div style="color: #6b7280; font-size: 14px;">${group.description || 'No description'}</div>
+                                </div>
+                                <i class="fas fa-chevron-right" style="color: #10b981;"></i>
+                            </div>
+                        `).join('');
+                    } else {
+                        content.innerHTML = `
+                            <div style="text-align: center; padding: 40px 20px; color: #6b7280;">
+                                <i class="fas fa-users" style="font-size: 48px; margin-bottom: 16px;"></i>
+                                <h3>No Groups Created</h3>
+                                <p>You haven't created any groups yet.</p>
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    console.error('Error loading created groups:', error);
+                    this.showNotification('Failed to load groups', 'error');
+                }
+            }
+            
+            async showJoinedGroups() {
+                try {
+                    // Update tab styling
+                    document.getElementById('createdGroupsTab').style.background = '#6b7280';
+                    document.getElementById('joinedGroupsTab').style.background = '#10b981';
+                    
+                    // Get groups where user is a member but not creator
+                    const { data: memberGroups, error } = await supabase
+                        .from('group_members')
+                        .select('group_id')
+                        .eq('user_id', this.currentUser.id);
+                    
+                    if (error) throw error;
+                    
+                    const groupIds = memberGroups?.map(m => m.group_id) || [];
+                    
+                    if (groupIds.length === 0) {
+                        document.getElementById('groupsTabContent').innerHTML = `
+                            <div style="text-align: center; padding: 40px 20px; color: #6b7280;">
+                                <i class="fas fa-user-plus" style="font-size: 48px; margin-bottom: 16px;"></i>
+                                <h3>No Groups Joined</h3>
+                                <p>You haven't been added to any groups yet.</p>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    const { data: groups, error: groupsError } = await supabase
+                        .from('groups')
+                        .select('*')
+                        .in('id', groupIds)
+                        .neq('creator_id', this.currentUser.id);
+                    
+                    if (groupsError) throw groupsError;
+                    
+                    const content = document.getElementById('groupsTabContent');
+                    if (groups && groups.length > 0) {
+                        content.innerHTML = groups.map(group => `
+                            <div onclick="window.authManager.viewGroupMembers('${group.id}', '${group.name}')" style="display: flex; align-items: center; padding: 16px; background: #eff6ff; border-radius: 12px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; border-left: 4px solid #3b82f6;">
+                                <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #1d4ed8); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 18px; margin-right: 16px;">
+                                    ${group.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div style="flex: 1; text-align: left;">
+                                    <div style="font-weight: 600; font-size: 16px; color: #1f2937; margin-bottom: 4px;">${group.name} <span style="background: #3b82f6; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px;">MEMBER</span></div>
+                                    <div style="color: #6b7280; font-size: 14px;">${group.description || 'No description'}</div>
+                                </div>
+                                <i class="fas fa-chevron-right" style="color: #3b82f6;"></i>
+                            </div>
+                        `).join('');
+                    } else {
+                        content.innerHTML = `
+                            <div style="text-align: center; padding: 40px 20px; color: #6b7280;">
+                                <i class="fas fa-user-plus" style="font-size: 48px; margin-bottom: 16px;"></i>
+                                <h3>No Groups Joined</h3>
+                                <p>You haven't been added to any groups by others yet.</p>
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    console.error('Error loading joined groups:', error);
+                    this.showNotification('Failed to load joined groups', 'error');
+                }
+            }
+            
+            async showMyCreatedChannels() {
+                try {
+                    // Only show channels created by the user (not joined ones)
+                    const { data: channels, error } = await supabase
+                        .from('channels')
+                        .select('*')
+                        .eq('creator_id', this.currentUser.id);
+                    
+                    if (error) throw error;
+                    
+                    const content = document.getElementById('membersContent');
+                    if (channels && channels.length > 0) {
+                        content.innerHTML = channels.map(channel => `
+                            <div onclick="window.authManager.viewChannelMembers('${channel.id}', '${channel.name}')" style="display: flex; align-items: center; padding: 16px; background: #fef3c7; border-radius: 12px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; border-left: 4px solid #f59e0b;">
+                                <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #f59e0b, #d97706); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 18px; margin-right: 16px;">
+                                    ${channel.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div style="flex: 1; text-align: left;">
+                                    <div style="font-weight: 600; font-size: 16px; color: #1f2937; margin-bottom: 4px;">${channel.name} <span style="background: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px;">CREATOR</span></div>
+                                    <div style="color: #6b7280; font-size: 14px;">${channel.description || 'No description'}</div>
+                                </div>
+                                <i class="fas fa-chevron-right" style="color: #f59e0b;"></i>
+                            </div>
+                        `).join('');
+                    } else {
+                        content.innerHTML = `
+                            <div style="text-align: center; padding: 40px 20px; color: #6b7280;">
+                                <i class="fas fa-broadcast-tower" style="font-size: 48px; margin-bottom: 16px;"></i>
+                                <h3>No Channels Created</h3>
+                                <p>You haven't created any channels yet.</p>
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    console.error('Error loading created channels:', error);
+                    this.showNotification('Failed to load channels', 'error');
+                }
+            }
+            
+            async viewGroupMembers(groupId, groupName) {
+                try {
+                    let memberProfiles = [];
+                    
+                    try {
+                        const { data, error } = await supabase
+                            .rpc('get_group_members_with_profiles', { group_id_param: groupId });
+                        
+                        if (!error && data) {
+                            memberProfiles = data.map(member => ({
+                                id: member.user_id,
+                                full_name: member.full_name,
+                                username: member.username,
+                                profile_photo: member.profile_photo,
+                                job_title: member.job_title,
+                                company: member.company
+                            }));
+                        } else {
+                            throw new Error('Function not available');
+                        }
+                    } catch (funcError) {
+                        const { data: members, error } = await supabase
+                            .from('group_members')
+                            .select('user_id')
+                            .eq('group_id', groupId);
+                        
+                        if (error) throw error;
+                        
+                        for (let member of members || []) {
+                            const { data: profile } = await supabase
+                                .from('profiles')
+                                .select('*')
+                                .eq('id', member.user_id)
+                                .single();
+                            if (profile) memberProfiles.push(profile);
+                        }
+                    }
+                    
+                    this.displayMembersModal(memberProfiles, groupName, 'group');
+                    
+                } catch (error) {
+                    console.error('Error loading group members:', error);
+                    this.showNotification('Failed to load group members', 'error');
+                }
+            }
+            
+            async viewChannelMembers(channelId, channelName) {
+                try {
+                    const { data: members, error } = await supabase
+                        .from('channel_members')
+                        .select('user_id')
+                        .eq('channel_id', channelId);
+                    
+                    if (error) throw error;
+                    
+                    const memberProfiles = [];
+                    for (let member of members || []) {
+                        const { data: profile } = await supabase
+                            .from('profiles')
+                            .select('*')
+                            .eq('id', member.user_id)
+                            .single();
+                        if (profile) memberProfiles.push(profile);
+                    }
+                    
+                    this.displayMembersModal(memberProfiles, channelName, 'channel');
+                    
+                } catch (error) {
+                    console.error('Error loading channel members:', error);
+                    this.showNotification('Failed to load channel members', 'error');
+                }
+            }
+            
+            displayMembersModal(members, name, type) {
+                const modal = document.createElement('div');
+                modal.className = 'overlay';
+                modal.innerHTML = `
+                    <div class="settings-modal" style="max-width: 500px; max-height: 90vh;">
+                        <div class="settings-header" style="background: ${type === 'group' ? '#10b981' : '#f59e0b'}; color: white;">
+                            <h3><i class="fas fa-${type === 'group' ? 'users' : 'broadcast-tower'}"></i> ${name} Members</h3>
+                            <button class="close-btn" onclick="this.closest('.overlay').remove()" style="color: white;">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="settings-content" style="max-height: 70vh; overflow-y: auto;">
+                            ${members.length === 0 ? `
+                                <div style="text-align: center; padding: 40px 20px; color: #6b7280;">
+                                    <i class="fas fa-users" style="font-size: 48px; margin-bottom: 16px;"></i>
+                                    <h3>No Members Found</h3>
+                                    <p>This ${type} has no members yet.</p>
+                                </div>
+                            ` : `
+                                ${members.map(member => `
+                                    <div style="display: flex; align-items: center; gap: 16px; padding: 16px; background: #f8fafc; border-radius: 12px; margin-bottom: 12px; border-left: 4px solid ${type === 'group' ? '#10b981' : '#f59e0b'};">
+                                        <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, ${type === 'group' ? '#10b981, #059669' : '#f59e0b, #d97706'}); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 18px; overflow: hidden;">
+                                            ${member.profile_photo ? 
+                                                `<img src="${member.profile_photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">` :
+                                                (member.full_name || member.username).charAt(0).toUpperCase()
+                                            }
+                                        </div>
+                                        <div style="flex: 1; min-width: 0;">
+                                            <div style="font-weight: 600; font-size: 16px; color: #1f2937; margin-bottom: 4px;">${member.full_name || member.username}</div>
+                                            <div style="color: #6b7280; font-size: 14px; margin-bottom: 4px;">@${member.username}</div>
+                                            ${member.job_title ? `<div style="color: ${type === 'group' ? '#10b981' : '#f59e0b'}; font-size: 12px; font-weight: 500;"><i class="fas fa-briefcase"></i> ${member.job_title}</div>` : ''}
+                                        </div>
+                                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                                            ${member.id !== this.currentUser.id ? `
+                                                <button onclick="window.authManager.checkMessageLockAndStart('${member.id}'); this.closest('.overlay').remove();" style="background: ${type === 'group' ? '#10b981' : '#f59e0b'}; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">
+                                                    <i class="fas fa-comment"></i> Message
+                                                </button>
+                                            ` : `
+                                                <div style="background: #f3f4f6; color: #6b7280; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 600;">
+                                                    <i class="fas fa-crown"></i> Creator
+                                                </div>
+                                            `}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            `}
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
             }
             
             async toggleFollowFromProfile(userId) {
