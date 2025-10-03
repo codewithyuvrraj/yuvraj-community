@@ -446,6 +446,11 @@ class SimpleInstantChat {
         if (this.currentConversation) {
             await this.markConversationAsRead();
             
+            // Clear unlock status for messages when leaving chat
+            if (window.lockManager) {
+                window.lockManager.clearUnlockStatus('messages');
+            }
+            
             // Force home feed refresh after cleanup
             setTimeout(() => {
                 if (window.authManager && window.authManager.loadHomeFeed) {

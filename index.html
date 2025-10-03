@@ -4430,11 +4430,14 @@
             checkMessageLockAndStart(userId) {
                 // Check if messages feature is locked
                 if (window.lockManager && window.lockManager.isFeatureLocked('messages')) {
-                    window.lockManager.showUnlockModal('messages');
-                    return;
+                    // Check if temporarily unlocked
+                    if (!window.lockManager.isFeatureUnlocked('messages')) {
+                        window.lockManager.showUnlockModal('messages', userId);
+                        return;
+                    }
                 }
                 
-                // If not locked, start conversation normally
+                // If not locked or temporarily unlocked, start conversation normally
                 if (window.chatManager) {
                     window.chatManager.startConversation(userId);
                 }

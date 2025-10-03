@@ -3,6 +3,7 @@ class LockManager {
     constructor() {
         this.lockPassword = localStorage.getItem('lockPassword');
         this.isUnlocked = false;
+        this.pendingUserId = null;
     }
 
     // Show lock options dropdown
@@ -175,7 +176,12 @@ class LockManager {
     }
 
     // Show unlock modal
-    showUnlockModal(featureType) {
+    showUnlockModal(featureType, userId = null) {
+        // Store pending user ID for messages
+        if (featureType === 'messages' && userId) {
+            this.pendingUserId = userId;
+        }
+        
         const modal = document.createElement('div');
         modal.className = 'overlay';
         modal.innerHTML = `
@@ -187,13 +193,19 @@ class LockManager {
                     <p style="margin-bottom: 16px;">Enter password to unlock ${featureType}</p>
                     <input type="password" id="unlockPassword" placeholder="Enter password" style="width: 100%; padding: 8px; margin-bottom: 16px; border: 1px solid #e5e7eb; border-radius: 6px;">
                     <div style="display: flex; gap: 8px;">
-                        <button onclick="this.closest('.overlay').remove()" style="flex: 1; padding: 8px; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer;">Cancel</button>
+                        <button onclick="this.closest('.overlay').remove(); window.lockManager.pendingUserId = null;" style="flex: 1; padding: 8px; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer;">Cancel</button>
                         <button onclick="window.lockManager.confirmUnlock('${featureType}')" style="flex: 1; padding: 8px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer;">Unlock</button>
                     </div>
                 </div>
             </div>
         `;
         document.body.appendChild(modal);
+        
+        // Focus password input
+        setTimeout(() => {
+            const passwordInput = document.getElementById('unlockPassword');
+            if (passwordInput) passwordInput.focus();
+        }, 100);
     }
 
     // Confirm password setup
@@ -232,17 +244,23 @@ class LockManager {
         }
         
         try {
-            if (window.isSupabaseEnabled && window.authManager?.currentUser) {
-                await window.supabase.rpc('unlock_feature', {
-                    p_user_id: window.authManager.currentUser.id,
-                    p_feature_type: featureType
-                });
-            }
+            // Set as temporarily unlocked (not permanently unlocked)
+            this.setFeatureUnlocked(featureType);
             
-            localStorage.removeItem(featureType + 'Locked');
             const overlay = document.querySelector('.overlay');
             if (overlay) overlay.remove();
-            window.authManager.showNotification(`${featureType} unlocked`, 'success');
+            window.authManager.showNotification(`${featureType} unlocked temporarily`, 'success');
+            
+            // If unlocking messages, proceed with the pending conversation
+            if (featureType === 'messages' && this.pendingUserId) {
+                const userId = this.pendingUserId;
+                this.pendingUserId = null;
+                setTimeout(() => {
+                    if (window.chatManager) {
+                        window.chatManager.startConversation(userId);
+                    }
+                }, 100);
+            }
         } catch (error) {
             console.error(`Error unlocking ${featureType}:`, error);
             window.authManager.showNotification(`Failed to unlock ${featureType}`, 'error');
@@ -252,6 +270,23 @@ class LockManager {
     // Check if feature is locked
     isFeatureLocked(featureType) {
         return localStorage.getItem(featureType + 'Locked') === 'true';
+    }
+    
+    // Clear unlock status (require password again)
+    clearUnlockStatus(featureType) {
+        localStorage.removeItem(featureType + 'Unlocked');
+        this.isUnlocked = false;
+    }
+    
+    // Check if feature is currently unlocked
+    isFeatureUnlocked(featureType) {
+        return localStorage.getItem(featureType + 'Unlocked') === 'true';
+    }
+    
+    // Set feature as unlocked temporarily
+    setFeatureUnlocked(featureType) {
+        localStorage.setItem(featureType + 'Unlocked', 'true');
+        this.isUnlocked = true;
     }
 }
 
