@@ -1407,6 +1407,19 @@
 
 
         
+        /* Leave Icon Styles */
+        .leave-icon {
+            color: #6b7280;
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: 8px;
+            transition: color 0.2s ease;
+        }
+
+        .leave-icon:hover {
+            color: #ef4444;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .sidebar {
@@ -1493,7 +1506,7 @@
                     </div>
                     <div class="form-group">
                         <label for="loginPassword">Password</label>
-                        <input type="password" id="loginPassword" autocomplete="current-password" required>
+                        <input type="password" id="loginPassword" name="password" autocomplete="current-password" required>
                     </div>
                     <button type="submit" class="btn btn-primary">
                         <span id="loginBtnText">Sign In</span>
@@ -1526,7 +1539,7 @@
                     </div>
                     <div class="form-group">
                         <label for="registerPassword">Password</label>
-                        <input type="password" id="registerPassword" autocomplete="new-password" required>
+                        <input type="password" id="registerPassword" name="password" autocomplete="new-password" required>
                     </div>
                     <button type="submit" class="btn btn-success">
                         <span id="registerBtnText">Create Account</span>
@@ -4064,16 +4077,20 @@
                                 </div>
                             ` : `
                                 ${groups.map(group => `
-                                    <div onclick="window.groupChatManager.openGroup('${group.group_id}'); this.closest('.overlay').remove();" style="display: flex; align-items: center; padding: 16px; background: #eff6ff; border-radius: 12px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; border-left: 4px solid #3b82f6;">
-                                        <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #1d4ed8); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 18px; margin-right: 16px;">
-                                            ${group.group_name.charAt(0).toUpperCase()}
+                                    <div style="display: flex; align-items: center; padding: 16px; background: #eff6ff; border-radius: 12px; margin-bottom: 12px; transition: all 0.2s; border-left: 4px solid #3b82f6;">
+                                        <div onclick="window.groupChatManager.openGroup('${group.group_id}'); this.closest('.overlay').remove();" style="display: flex; align-items: center; flex: 1; cursor: pointer;">
+                                            <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #1d4ed8); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 18px; margin-right: 16px;">
+                                                ${group.group_name.charAt(0).toUpperCase()}
+                                            </div>
+                                            <div style="flex: 1; text-align: left;">
+                                                <div style="font-weight: 600; font-size: 16px; color: #1f2937; margin-bottom: 4px;">${group.group_name} <span style="background: #3b82f6; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px;">MEMBER</span></div>
+                                                <div style="color: #6b7280; font-size: 14px; margin-bottom: 4px;">${group.group_description || 'No description'}</div>
+                                                <div style="font-size: 12px; color: #6b7280;">Added by ${group.creator_name}</div>
+                                            </div>
                                         </div>
-                                        <div style="flex: 1; text-align: left;">
-                                            <div style="font-weight: 600; font-size: 16px; color: #1f2937; margin-bottom: 4px;">${group.group_name} <span style="background: #3b82f6; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px;">MEMBER</span></div>
-                                            <div style="color: #6b7280; font-size: 14px; margin-bottom: 4px;">${group.group_description || 'No description'}</div>
-                                            <div style="font-size: 12px; color: #6b7280;">Added by ${group.creator_name}</div>
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <i class="fas fa-sign-out-alt leave-icon" title="Leave Group" onclick="window.groupLeaveManager.leaveGroup('${group.group_id}')"></i>
                                         </div>
-                                        <i class="fas fa-chevron-right" style="color: #3b82f6;"></i>
                                     </div>
                                 `).join('')}
                             `}
@@ -4554,13 +4571,18 @@
                                 </div>
                             ` : `
                                 ${groups.map(group => `
-                                    <div onclick="window.authManager.openGroup('${group.id}')" style="display: flex; align-items: center; padding: 16px; background: #f8fafc; border-radius: 12px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; border-left: 4px solid #10b981;">
-                                        <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #10b981, #059669); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 18px; margin-right: 16px;">
-                                            ${group.name.charAt(0).toUpperCase()}
+                                    <div style="display: flex; align-items: center; padding: 16px; background: #f8fafc; border-radius: 12px; margin-bottom: 12px; transition: all 0.2s; border-left: 4px solid #10b981;">
+                                        <div onclick="window.authManager.openGroup('${group.id}')" style="display: flex; align-items: center; flex: 1; cursor: pointer;">
+                                            <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #10b981, #059669); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 18px; margin-right: 16px;">
+                                                ${group.name.charAt(0).toUpperCase()}
+                                            </div>
+                                            <div style="flex: 1;">
+                                                <div style="font-weight: 600; font-size: 16px; color: #1f2937; margin-bottom: 4px;">${group.name}</div>
+                                                <div style="color: #6b7280; font-size: 14px;">${group.description || 'No description'}</div>
+                                            </div>
                                         </div>
-                                        <div style="flex: 1;">
-                                            <div style="font-weight: 600; font-size: 16px; color: #1f2937; margin-bottom: 4px;">${group.name}</div>
-                                            <div style="color: #6b7280; font-size: 14px;">${group.description || 'No description'}</div>
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            ${group.creator_id !== this.currentUser.id ? `<i class="fas fa-sign-out-alt leave-icon" title="Leave Group" onclick="window.groupLeaveManager.leaveGroup('${group.id}')"></i>` : ''}
                                         </div>
                                     </div>
                                 `).join('')}
@@ -5881,6 +5903,7 @@
                                     <button onclick="window.authManager.showAddUsersToGroup('${group.id}')" style="background: #10b981; color: white; border: none; padding: 6px 8px; border-radius: 6px; font-size: 12px;">
                                         <i class="fas fa-user-plus"></i>
                                     </button>
+                                    ${group.creator_id !== this.currentUser.id ? `<i class="fas fa-sign-out-alt leave-icon" title="Leave Group" onclick="window.groupLeaveManager.leaveGroup('${group.id}')"></i>` : ''}
                                 </div>
                             `).join('') : '<div style="text-align: center; color: #6b7280; padding: 40px;"><i class="fas fa-users" style="font-size: 32px; margin-bottom: 12px;"></i><p>No groups created yet</p></div>'}
                             <button class="btn" style="background: #10b981; color: white; width: 100%; margin-top: 16px;" onclick="window.authManager.showCreateGroup(); this.closest('.overlay').remove();">
