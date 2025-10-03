@@ -1,21 +1,21 @@
 // Group Notifications Manager
 class GroupNotificationManager {
-    constructor(supabase) {
-        this.supabase = supabase;
+    constructor() {
+        // Use global supabase instance
     }
 
     // Send notification when user is added to group
     async notifyGroupAddition(groupId, addedUserId, addedByUserId) {
         try {
             // Get group details
-            const { data: group } = await this.supabase
+            const { data: group } = await window.supabase
                 .from('groups')
                 .select('name, creator_id')
                 .eq('id', groupId)
                 .single();
 
             // Get adder details
-            const { data: adder } = await this.supabase
+            const { data: adder } = await window.supabase
                 .from('profiles')
                 .select('full_name, username, profile_photo')
                 .eq('id', addedByUserId)
@@ -24,7 +24,7 @@ class GroupNotificationManager {
             if (!group || !adder) return;
 
             // Create notification
-            const { error } = await this.supabase
+            const { error } = await window.supabase
                 .from('group_notifications')
                 .insert({
                     user_id: addedUserId,
@@ -52,14 +52,14 @@ class GroupNotificationManager {
     async notifyChannelAddition(channelId, addedUserId, addedByUserId) {
         try {
             // Get channel details
-            const { data: channel } = await this.supabase
+            const { data: channel } = await window.supabase
                 .from('channels')
                 .select('name, creator_id')
                 .eq('id', channelId)
                 .single();
 
             // Get adder details
-            const { data: adder } = await this.supabase
+            const { data: adder } = await window.supabase
                 .from('profiles')
                 .select('full_name, username, profile_photo')
                 .eq('id', addedByUserId)
@@ -68,7 +68,7 @@ class GroupNotificationManager {
             if (!channel || !adder) return;
 
             // Create notification
-            const { error } = await this.supabase
+            const { error } = await window.supabase
                 .from('group_notifications')
                 .insert({
                     user_id: addedUserId,
@@ -95,7 +95,7 @@ class GroupNotificationManager {
     // Get unread group notifications count
     async getUnreadGroupNotificationsCount(userId) {
         try {
-            const { count, error } = await this.supabase
+            const { count, error } = await window.supabase
                 .from('group_notifications')
                 .select('*', { count: 'exact', head: true })
                 .eq('user_id', userId)
@@ -112,7 +112,7 @@ class GroupNotificationManager {
     // Get group notifications for user
     async getGroupNotifications(userId, limit = 20) {
         try {
-            const { data, error } = await this.supabase
+            const { data, error } = await window.supabase
                 .from('group_notifications')
                 .select('*')
                 .eq('user_id', userId)
@@ -130,7 +130,7 @@ class GroupNotificationManager {
     // Mark group notification as read
     async markGroupNotificationRead(notificationId, userId) {
         try {
-            const { error } = await this.supabase
+            const { error } = await window.supabase
                 .from('group_notifications')
                 .update({ read: true })
                 .eq('id', notificationId)
@@ -146,7 +146,7 @@ class GroupNotificationManager {
     // Mark all group notifications as read
     async markAllGroupNotificationsRead(userId) {
         try {
-            const { error } = await this.supabase
+            const { error } = await window.supabase
                 .from('group_notifications')
                 .update({ read: true })
                 .eq('user_id', userId)
@@ -165,5 +165,5 @@ window.GroupNotificationManager = GroupNotificationManager;
 
 // Initialize when supabase is available
 if (window.supabase) {
-    window.groupNotificationManager = new GroupNotificationManager(window.supabase);
+    window.groupNotificationManager = new GroupNotificationManager();
 }
