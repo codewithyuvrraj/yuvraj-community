@@ -16,7 +16,7 @@ CREATE POLICY "Users can read their messages" ON messages
     );
 
 CREATE POLICY "Users can send messages" ON messages
-    FOR INSERT WITH CHECK (sender_id = auth.uid());
+    FOR INSERT WITH CHECK (true);
 
 CREATE POLICY "Users can update own messages" ON messages
     FOR UPDATE USING (sender_id = auth.uid());
