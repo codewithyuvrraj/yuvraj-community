@@ -2569,7 +2569,7 @@
                                     ${user.bio ? `<div class="followed-user-bio">${user.bio}</div>` : ''}
                                 </div>
                                 <div class="action-buttons">
-                                    <button class="message-btn" onclick="window.chatManager.startConversation('${user.id}')">
+                                    <button class="message-btn" onclick="window.authManager.checkMessageLockAndStart('${user.id}')">
                                         <i class="fas fa-comment"></i> Message
                                     </button>
                                     <button class="profile-btn" onclick="window.authManager.showUserProfile('${user.id}')">
@@ -2733,7 +2733,7 @@
                                 </div>
                                 
                                 <div style="display: flex; gap: 12px; justify-content: center; margin-top: 24px;">
-                                    <button class="btn btn-primary" onclick="window.chatManager.startConversation('${user.id}'); this.closest('.overlay').remove();">
+                                    <button class="btn btn-primary" onclick="window.authManager.checkMessageLockAndStart('${user.id}'); this.closest('.overlay').remove();">
                                         <i class="fas fa-comment"></i> Start Conversation
                                     </button>
                                     <button class="btn" id="profileFollowBtn_${user.id}" style="background: ${isFollowing ? '#ef4444' : '#10b981'}; color: white;" onclick="window.authManager.toggleFollowFromProfile('${user.id}')">
@@ -3892,7 +3892,7 @@
                             ${user.bio ? `<div style="color: #4b5563; font-size: 12px; margin-top: 4px; line-height: 1.4; max-height: 32px; overflow: hidden;">${user.bio}</div>` : ''}
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 8px;">
-                            <button onclick="window.authManager.startChatFromSearch('${user.id}')" style="background: #1e40af; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s;" onmouseover="this.style.background='#1d4ed8'" onmouseout="this.style.background='#1e40af'">
+                            <button onclick="window.authManager.checkMessageLockAndStart('${user.id}')" style="background: #1e40af; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s;" onmouseover="this.style.background='#1d4ed8'" onmouseout="this.style.background='#1e40af'">
                                 <i class="fas fa-comment"></i> Message
                             </button>
                             <button onclick="window.authManager.followUserFromSearch('${user.id}')" style="background: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
@@ -3926,7 +3926,7 @@
             
             async startChatFromSearch(userId) {
                 document.querySelector('.overlay').remove();
-                window.chatManager.startConversation(userId);
+                this.checkMessageLockAndStart(userId);
             }
             
             async followUserFromSearch(userId) {
@@ -4425,6 +4425,19 @@
             
             getUserStatusText() {
                 return 'Active';
+            }
+            
+            checkMessageLockAndStart(userId) {
+                // Check if messages feature is locked
+                if (window.lockManager && window.lockManager.isFeatureLocked('messages')) {
+                    window.lockManager.showUnlockModal('messages');
+                    return;
+                }
+                
+                // If not locked, start conversation normally
+                if (window.chatManager) {
+                    window.chatManager.startConversation(userId);
+                }
             }
             
             async deleteChatForMe(conversationId) {
