@@ -77,7 +77,8 @@ class LockManager {
             }
             
             localStorage.setItem('messagesLocked', 'true');
-            document.querySelector('.overlay').remove();
+            const overlay = document.querySelector('.overlay');
+            if (overlay) overlay.remove();
             window.authManager.showNotification('Messages locked', 'success');
         } catch (error) {
             console.error('Error locking messages:', error);
@@ -101,7 +102,8 @@ class LockManager {
             }
             
             localStorage.setItem('groupsLocked', 'true');
-            document.querySelector('.overlay').remove();
+            const overlay = document.querySelector('.overlay');
+            if (overlay) overlay.remove();
             window.authManager.showNotification('Groups locked', 'success');
         } catch (error) {
             console.error('Error locking groups:', error);
@@ -125,7 +127,8 @@ class LockManager {
             }
             
             localStorage.setItem('channelsLocked', 'true');
-            document.querySelector('.overlay').remove();
+            const overlay = document.querySelector('.overlay');
+            if (overlay) overlay.remove();
             window.authManager.showNotification('Channels locked', 'success');
         } catch (error) {
             console.error('Error locking channels:', error);
@@ -210,7 +213,8 @@ class LockManager {
         
         this.lockPassword = password;
         localStorage.setItem('lockPassword', password);
-        document.querySelector('.overlay').remove();
+        const overlay = document.querySelector('.overlay');
+        if (overlay) overlay.remove();
         
         // Lock the feature
         if (featureType === 'messages') this.lockMessages();
@@ -236,7 +240,8 @@ class LockManager {
             }
             
             localStorage.removeItem(featureType + 'Locked');
-            document.querySelector('.overlay').remove();
+            const overlay = document.querySelector('.overlay');
+            if (overlay) overlay.remove();
             window.authManager.showNotification(`${featureType} unlocked`, 'success');
         } catch (error) {
             console.error(`Error unlocking ${featureType}:`, error);
