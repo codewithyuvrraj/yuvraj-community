@@ -30,6 +30,8 @@
     <script src="group-chat.js"></script>
     <!-- Group Notifications -->
     <script src="group-notifications.js"></script>
+    <!-- Group Member Manager -->
+    <script src="group-member-manager.js"></script>
     
     <style>
         /* Reset and Base Styles */
@@ -3702,7 +3704,7 @@
                         }
                     }
                     
-                    this.displayMembersModal(memberProfiles, groupName, 'group');
+                    this.displayMembersModal(memberProfiles, groupName, 'group', groupId);
                     
                 } catch (error) {
                     console.error('Error loading group members:', error);
@@ -3729,7 +3731,7 @@
                         if (profile) memberProfiles.push(profile);
                     }
                     
-                    this.displayMembersModal(memberProfiles, channelName, 'channel');
+                    this.displayMembersModal(memberProfiles, channelName, 'channel', null, channelId);
                     
                 } catch (error) {
                     console.error('Error loading channel members:', error);
@@ -3737,7 +3739,7 @@
                 }
             }
             
-            displayMembersModal(members, name, type) {
+            displayMembersModal(members, name, type, groupId = null, channelId = null) {
                 const modal = document.createElement('div');
                 modal.className = 'overlay';
                 modal.innerHTML = `
@@ -3773,6 +3775,9 @@
                                             ${member.id !== this.currentUser.id ? `
                                                 <button onclick="window.authManager.checkMessageLockAndStart('${member.id}'); this.closest('.overlay').remove();" style="background: ${type === 'group' ? '#10b981' : '#f59e0b'}; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">
                                                     <i class="fas fa-comment"></i> Message
+                                                </button>
+                                                <button onclick="window.groupMemberManager.showRemoveConfirmation('${member.full_name || member.username}', '${name}', '${groupId || channelId}', '${member.id}', '${type}')" style="background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">
+                                                    <i class="fas fa-user-minus"></i> Remove
                                                 </button>
                                             ` : `
                                                 <div style="background: #f3f4f6; color: #6b7280; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 600;">
