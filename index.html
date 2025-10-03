@@ -33,6 +33,8 @@
     <script src="group-notifications.js?v=2"></script>
     <!-- Group Member Manager -->
     <script src="group-member-manager.js?v=2"></script>
+    <!-- Group Leave Manager -->
+    <script src="group-leave-manager.js"></script>
     
     <style>
         /* Reset and Base Styles */
@@ -3425,6 +3427,10 @@
                                 
                                 <button class="btn" style="background: #8b5cf6; color: white; width: 100%; margin-top: 12px;" onclick="window.authManager.showGroupMembersManager()">
                                     <i class="fas fa-users"></i> View Members
+                                </button>
+                                
+                                <button class="btn" style="background: #ef4444; color: white; width: 100%; margin-top: 12px;" onclick="window.groupLeaveManager.showLeaveGroupsModal(); this.closest('.overlay').remove();">
+                                    <i class="fas fa-sign-out-alt"></i> Leave Groups
                                 </button>
                                 
                                 <div id="chatLockFromUISection" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
