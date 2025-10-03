@@ -61,8 +61,8 @@ class GroupChatManager {
         
         if (chatTitle) {
             chatTitle.textContent = this.currentGroup.name;
-            chatTitle.style.cursor = 'default';
-            chatTitle.onclick = null;
+            chatTitle.style.cursor = 'pointer';
+            chatTitle.onclick = () => this.showGroupMembers();
         }
         
         if (chatStatus) {
@@ -287,6 +287,120 @@ class GroupChatManager {
         if (this.pollInterval) {
             clearInterval(this.pollInterval);
             this.pollInterval = null;
+        }
+    }
+
+    async showGroupMembers() {
+        if (!this.currentGroup) return;
+        
+        try {
+            // Get group members
+            const { data: members, error } = await window.supabase
+                .from('group_members')
+                .select('user_id')
+                .eq('group_id', this.currentGroup.id);
+            
+            if (error) throw error;
+            
+            // Get member profiles
+            const memberProfiles = [];
+            for (let member of members || []) {
+                const { data: profile } = await window.supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', member.user_id)
+                    .single();
+                if (profile) memberProfiles.push(profile);
+            }
+            
+            this.displayGroupMembersModal(memberProfiles);
+            
+        } catch (error) {
+            console.error('Error loading group members:', error);
+            window.authManager.showNotification('Failed to load group members', 'error');
+        }
+    }
+    
+    displayGroupMembersModal(members) {
+        const modal = document.createElement('div');
+        modal.className = 'overlay';
+        modal.innerHTML = `
+            <div class="settings-modal" style="max-width: 500px; max-height: 90vh;">
+                <div class="settings-header" style="background: #10b981; color: white;">
+                    <h3><i class="fas fa-users"></i> ${this.currentGroup.name} Members</h3>
+                    <button class="close-btn" onclick="this.closest('.overlay').remove()" style="color: white;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="settings-content" style="max-height: 70vh; overflow-y: auto;">
+                    ${members.length === 0 ? `
+                        <div style="text-align: center; padding: 40px 20px; color: #6b7280;">
+                            <i class="fas fa-users" style="font-size: 48px; margin-bottom: 16px;"></i>
+                            <h3>No Members Found</h3>
+                            <p>This group has no members yet.</p>
+                        </div>
+                    ` : `
+                        ${members.map(member => `
+                            <div style="display: flex; align-items: center; gap: 16px; padding: 16px; background: #f8fafc; border-radius: 12px; margin-bottom: 12px; border-left: 4px solid #10b981;">
+                                <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #10b981, #059669); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 18px; overflow: hidden;">
+                                    ${member.profile_photo ? 
+                                        `<img src="${member.profile_photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">` :
+                                        (member.full_name || member.username).charAt(0).toUpperCase()
+                                    }
+                                </div>
+                                <div style="flex: 1; min-width: 0;">
+                                    <div style="font-weight: 600; font-size: 16px; color: #1f2937; margin-bottom: 4px;">${member.full_name || member.username}</div>
+                                    <div style="color: #6b7280; font-size: 14px; margin-bottom: 4px;">@${member.username}</div>
+                                    ${member.job_title ? `<div style="color: #10b981; font-size: 12px; font-weight: 500;"><i class="fas fa-briefcase"></i> ${member.job_title}</div>` : ''}
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 8px;">
+                                    ${member.id !== window.authManager.currentUser.id ? `
+                                        <button onclick="window.authManager.checkMessageLockAndStart('${member.id}'); this.closest('.overlay').remove();" style="background: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">
+                                            <i class="fas fa-comment"></i> Message
+                                        </button>
+                                        <button onclick="window.groupChatManager.followMemberFromGroup('${member.id}')" style="background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">
+                                            <i class="fas fa-user-plus"></i> Follow
+                                        </button>
+                                    ` : `
+                                        <div style="background: #f3f4f6; color: #6b7280; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 600;">
+                                            <i class="fas fa-crown"></i> You
+                                        </div>
+                                    `}
+                                </div>
+                            </div>
+                        `).join('')}
+                    `}
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    async followMemberFromGroup(userId) {
+        try {
+            if (window.isSupabaseEnabled) {
+                const { error } = await window.supabase
+                    .from('follows')
+                    .insert({
+                        follower_id: window.authManager.currentUser.id,
+                        following_id: userId
+                    });
+                
+                if (error) {
+                    if (error.code === '23505') {
+                        window.authManager.showNotification('You are already following this user', 'error');
+                    } else {
+                        throw error;
+                    }
+                    return;
+                }
+            }
+            
+            window.authManager.showNotification('User followed successfully!', 'success');
+            
+        } catch (error) {
+            console.error('Follow error:', error);
+            window.authManager.showNotification('Failed to follow user', 'error');
         }
     }
 
