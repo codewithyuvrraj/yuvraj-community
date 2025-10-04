@@ -33,10 +33,16 @@ class ProfessionalSettingsManager {
 
                         <div class="setting-item" style="flex-direction: column; align-items: flex-start; margin-bottom: 20px;">
                             <label style="margin-bottom: 8px; font-weight: 600;">Registered Email</label>
-                            <div style="width: 100%; padding: 12px; background: #f3f4f6; border-radius: 8px; color: #6b7280; font-family: monospace;">
-                                ${this.currentUser.email}
+                            <div style="display: flex; gap: 10px; align-items: center; width: 100%;">
+                                <div style="flex: 1; padding: 12px; background: #f3f4f6; border-radius: 8px; color: #6b7280; font-family: monospace;">
+                                    ${this.currentUser.email}
+                                </div>
+                                <button class="btn" onclick="window.professionalSettings.showChangeEmailModal()" 
+                                        style="background: #3b82f6; color: white; padding: 8px 12px; font-size: 12px;">
+                                    <i class="fas fa-edit"></i> Change
+                                </button>
                             </div>
-                            <small style="color: #6b7280; margin-top: 4px;">This is your account email (cannot be changed here)</small>
+                            <small style="color: #6b7280; margin-top: 4px;">Click Change to update your email address</small>
                         </div>
 
                         <div class="setting-item" style="justify-content: center; margin-top: 24px;">
@@ -49,6 +55,59 @@ class ProfessionalSettingsManager {
             </div>
         `;
         document.body.appendChild(modal);
+    }
+
+    showChangeEmailModal() {
+        const modal = document.createElement('div');
+        modal.className = 'overlay';
+        modal.innerHTML = `
+            <div class="settings-modal" style="max-width: 400px;">
+                <div class="settings-header">
+                    <h3><i class="fas fa-envelope"></i> Change Email</h3>
+                    <button class="close-btn" onclick="this.closest('.overlay').remove()">×</button>
+                </div>
+                <div class="settings-content">
+                    <p style="margin-bottom: 20px; color: #374151;">
+                        Current email: <strong>${this.currentUser.email}</strong>
+                    </p>
+                    <div class="form-group">
+                        <label>New Email Address:</label>
+                        <input type="email" id="newEmail" placeholder="Enter new email address">
+                    </div>
+                    <div style="display: flex; gap: 12px; margin-top: 20px;">
+                        <button class="btn btn-primary" onclick="window.professionalSettings.initiateEmailChange()" style="flex: 1;">
+                            <i class="fas fa-paper-plane"></i> Send Verification Code
+                        </button>
+                        <button class="btn" onclick="this.closest('.overlay').remove()" style="flex: 1;">
+                            Cancel
+                        </button>
+                    </div>
+                    <p style="margin-top: 15px; font-size: 12px; color: #6b7280;">
+                        A 6-digit verification code will be sent to your current email address.
+                    </p>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        setTimeout(() => {
+            document.getElementById('newEmail').focus();
+        }, 100);
+    }
+
+    async initiateEmailChange() {
+        const newEmail = document.getElementById('newEmail').value.trim();
+        
+        if (!newEmail) {
+            window.authManager.showNotification('Please enter a new email address', 'error');
+            return;
+        }
+
+        // Close current modal
+        document.querySelector('.overlay').remove();
+        
+        // Use email change manager
+        await window.emailChangeManager.requestEmailChange(newEmail);
     }
 
     async saveDisplayName() {
