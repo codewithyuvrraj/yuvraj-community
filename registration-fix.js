@@ -182,6 +182,7 @@ class RegistrationManager {
                 username: username,
                 email: email,
                 full_name: fullName,
+                display_name: fullName,  // Set display_name same as full_name
                 status: 'online',
                 joined_at: new Date().toISOString()
             };
@@ -229,6 +230,7 @@ class RegistrationManager {
                 username: username,
                 email: email,
                 full_name: fullName,
+                display_name: fullName,  // Set display_name same as full_name
                 status: 'online',
                 joined_at: new Date().toISOString()
             };
