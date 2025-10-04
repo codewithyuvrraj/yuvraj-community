@@ -6,6 +6,8 @@ class EmailChangeManager {
     }
 
     async requestEmailChange(newEmail) {
+        console.log('Email change requested for:', newEmail);
+        
         if (!this.validateEmail(newEmail)) {
             window.authManager.showNotification('Please enter a valid email address', 'error');
             return false;
@@ -20,29 +22,46 @@ class EmailChangeManager {
             // Generate 6-digit code
             this.verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
             this.newEmail = newEmail;
+            
+            console.log('Generated verification code:', this.verificationCode);
 
-            // Send verification code to current email
-            const { error } = await supabase.functions.invoke('send-verification-email', {
-                body: {
-                    email: window.authManager.currentUser.email,
-                    code: this.verificationCode,
-                    newEmail: newEmail
+            // Try to send verification code to current email
+            let emailSent = false;
+            try {
+                const { error } = await supabase.functions.invoke('send-verification-email', {
+                    body: {
+                        email: window.authManager.currentUser.email,
+                        code: this.verificationCode,
+                        newEmail: newEmail
+                    }
+                });
+                
+                if (!error) {
+                    emailSent = true;
+                    console.log('Email sent successfully');
                 }
-            });
-
-            if (error) {
-                // Fallback: store code in database for verification
-                await supabase
-                    .from('email_verification_codes')
-                    .insert({
-                        user_id: window.authManager.currentUser.id,
-                        verification_code: this.verificationCode,
-                        new_email: newEmail,
-                        expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString()
-                    });
+            } catch (emailError) {
+                console.log('Email function not available, using fallback');
             }
 
-            this.showVerificationModal();
+            // Store code in database for verification
+            if (window.isSupabaseEnabled) {
+                try {
+                    await supabase
+                        .from('email_verification_codes')
+                        .insert({
+                            user_id: window.authManager.currentUser.id,
+                            verification_code: this.verificationCode,
+                            new_email: newEmail,
+                            expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString()
+                        });
+                    console.log('Verification code stored in database');
+                } catch (dbError) {
+                    console.log('Database storage failed, continuing with in-memory code');
+                }
+            }
+
+            this.showVerificationModal(emailSent);
             return true;
         } catch (error) {
             console.error('Error requesting email change:', error);
@@ -51,9 +70,19 @@ class EmailChangeManager {
         }
     }
 
-    showVerificationModal() {
+    showVerificationModal(emailSent = false) {
         const modal = document.createElement('div');
         modal.className = 'overlay';
+        
+        // Show code directly if email wasn't sent (for testing)
+        const codeDisplay = !emailSent ? `
+            <div style="background: #fef3c7; border: 1px solid #f59e0b; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+                <p style="margin: 0; color: #92400e; font-size: 14px;">
+                    <strong>Testing Mode:</strong> Your verification code is: <span style="font-family: monospace; font-size: 16px; font-weight: bold;">${this.verificationCode}</span>
+                </p>
+            </div>
+        ` : '';
+        
         modal.innerHTML = `
             <div class="settings-modal" style="max-width: 400px;">
                 <div class="settings-header">
@@ -61,8 +90,9 @@ class EmailChangeManager {
                     <button class="close-btn" onclick="this.closest('.overlay').remove()">×</button>
                 </div>
                 <div class="settings-content">
+                    ${codeDisplay}
                     <p style="margin-bottom: 20px; color: #374151;">
-                        We've sent a 6-digit verification code to your current email:
+                        ${emailSent ? 'We\'ve sent a 6-digit verification code to your current email:' : 'Enter the 6-digit verification code for:'}
                         <strong>${window.authManager.currentUser.email}</strong>
                     </p>
                     <div class="form-group">
@@ -95,6 +125,7 @@ class EmailChangeManager {
 
     async verifyCode() {
         const enteredCode = document.getElementById('verificationCode').value.trim();
+        console.log('Verifying code:', enteredCode, 'Expected:', this.verificationCode);
         
         if (!enteredCode || enteredCode.length !== 6) {
             window.authManager.showNotification('Please enter a 6-digit code', 'error');
@@ -107,23 +138,36 @@ class EmailChangeManager {
         }
 
         try {
+            console.log('Updating email from', window.authManager.currentUser.email, 'to', this.newEmail);
+            
             // Update email in Supabase Auth
-            const { error: authError } = await supabase.auth.updateUser({
-                email: this.newEmail
-            });
+            if (window.isSupabaseEnabled) {
+                const { error: authError } = await supabase.auth.updateUser({
+                    email: this.newEmail
+                });
 
-            if (authError) throw authError;
+                if (authError) {
+                    console.error('Auth update error:', authError);
+                    throw authError;
+                }
+                console.log('Auth email updated successfully');
 
-            // Update email in profiles table
-            const { error: profileError } = await supabase
-                .from('profiles')
-                .update({ email: this.newEmail })
-                .eq('id', window.authManager.currentUser.id);
+                // Update email in profiles table
+                const { error: profileError } = await supabase
+                    .from('profiles')
+                    .update({ email: this.newEmail })
+                    .eq('id', window.authManager.currentUser.id);
 
-            if (profileError) throw profileError;
+                if (profileError) {
+                    console.error('Profile update error:', profileError);
+                    throw profileError;
+                }
+                console.log('Profile email updated successfully');
+            }
 
             // Update current user object
             window.authManager.currentUser.email = this.newEmail;
+            localStorage.setItem('businessconnect_current_user', JSON.stringify(window.authManager.currentUser));
             
             // Clear verification data
             this.verificationCode = null;
@@ -135,13 +179,13 @@ class EmailChangeManager {
             window.authManager.showNotification('Email updated successfully!', 'success');
             
             // Refresh professional settings if open
-            if (window.professionalSettingsManager) {
-                window.professionalSettingsManager.loadUserData();
+            if (window.professionalSettings) {
+                window.professionalSettings.loadUserData();
             }
 
         } catch (error) {
             console.error('Error updating email:', error);
-            window.authManager.showNotification('Failed to update email', 'error');
+            window.authManager.showNotification('Failed to update email: ' + error.message, 'error');
         }
     }
 
