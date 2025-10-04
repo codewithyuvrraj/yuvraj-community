@@ -325,13 +325,12 @@
                     const { data, error } = await supabase
                         .from('profiles')
                         .select('*')
-                        .ilike('username', `%${query}%`)
+                        .or(`username.ilike.%${query}%,full_name.ilike.%${query}%,email.ilike.%${query}%`)
                         .neq('id', currentUser?.id || '00000000-0000-0000-0000-000000000000')
-                        .gte('updated_at', '2025-01-10')
                         .limit(20);
                     
                     if (error) throw error;
-                    users = data?.filter(u => u.username && u.full_name && u.username.trim() && u.full_name.trim()) || [];
+                    users = data || [];
                 } else {
                     throw new Error('Database connection required');
                 }
@@ -428,11 +427,10 @@
                         .from('profiles')
                         .select('*')
                         .neq('id', currentUser?.id || '00000000-0000-0000-0000-000000000000')
-                        .gte('updated_at', '2025-01-10')
                         .limit(50);
                     
                     if (error) throw error;
-                    users = data?.filter(u => u.username && u.full_name && u.username.trim() && u.full_name.trim()) || [];
+                    users = data || [];
                 } else {
                     throw new Error('Database connection required');
                 }
