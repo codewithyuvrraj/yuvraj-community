@@ -6,6 +6,14 @@ class ProfessionalSettingsManager {
 
     init(user) {
         this.currentUser = user;
+        console.log('Professional Settings initialized with user:', user);
+    }
+    
+    loadUserData() {
+        // Refresh user data from authManager
+        if (window.authManager && window.authManager.currentUser) {
+            this.currentUser = window.authManager.currentUser;
+        }
     }
 
     showProfessionalSettings() {
@@ -35,14 +43,20 @@ class ProfessionalSettingsManager {
                             <label style="margin-bottom: 8px; font-weight: 600;">Registered Email</label>
                             <div style="display: flex; gap: 10px; align-items: center; width: 100%;">
                                 <div style="flex: 1; padding: 12px; background: #f3f4f6; border-radius: 8px; color: #6b7280; font-family: monospace;">
-                                    ${this.currentUser.email}
+                                    ${this.currentUser.email || 'No email set'}
                                 </div>
-                                <button class="btn" onclick="window.professionalSettings.showChangeEmailModal()" 
-                                        style="background: #3b82f6; color: white; padding: 8px 12px; font-size: 12px;">
+                                <button class="btn" onclick="console.log('Change button clicked'); if(window.professionalSettings) { window.professionalSettings.showChangeEmailModal(); } else { console.error('Professional settings not available'); alert('Professional settings not available'); }" 
+                                        style="background: #3b82f6; color: white; padding: 8px 12px; font-size: 12px; white-space: nowrap;">
                                     <i class="fas fa-edit"></i> Change
                                 </button>
                             </div>
                             <small style="color: #6b7280; margin-top: 4px;">Click Change to update your email address</small>
+                            <div style="margin-top: 8px;">
+                                <button class="btn" onclick="console.log('Test button clicked'); console.log('Email change manager:', window.emailChangeManager);" 
+                                        style="background: #f59e0b; color: white; padding: 4px 8px; font-size: 10px;">
+                                    Test Email Manager
+                                </button>
+                            </div>
                         </div>
 
                         <div class="setting-item" style="justify-content: center; margin-top: 24px;">
@@ -58,6 +72,16 @@ class ProfessionalSettingsManager {
     }
 
     showChangeEmailModal() {
+        console.log('showChangeEmailModal called');
+        
+        if (!this.currentUser || !this.currentUser.email) {
+            console.error('No current user or email found');
+            if (window.authManager) {
+                window.authManager.showNotification('User information not available', 'error');
+            }
+            return;
+        }
+        
         const modal = document.createElement('div');
         modal.className = 'overlay';
         modal.innerHTML = `
@@ -91,23 +115,46 @@ class ProfessionalSettingsManager {
         document.body.appendChild(modal);
         
         setTimeout(() => {
-            document.getElementById('newEmail').focus();
+            const emailInput = document.getElementById('newEmail');
+            if (emailInput) {
+                emailInput.focus();
+            }
         }, 100);
     }
 
     async initiateEmailChange() {
-        const newEmail = document.getElementById('newEmail').value.trim();
+        console.log('initiateEmailChange called');
+        
+        const newEmailInput = document.getElementById('newEmail');
+        if (!newEmailInput) {
+            console.error('New email input not found');
+            return;
+        }
+        
+        const newEmail = newEmailInput.value.trim();
         
         if (!newEmail) {
-            window.authManager.showNotification('Please enter a new email address', 'error');
+            if (window.authManager) {
+                window.authManager.showNotification('Please enter a new email address', 'error');
+            }
             return;
         }
 
         // Close current modal
-        document.querySelector('.overlay').remove();
+        const overlay = document.querySelector('.overlay');
+        if (overlay) {
+            overlay.remove();
+        }
         
         // Use email change manager
-        await window.emailChangeManager.requestEmailChange(newEmail);
+        if (window.emailChangeManager) {
+            await window.emailChangeManager.requestEmailChange(newEmail);
+        } else {
+            console.error('Email change manager not found');
+            if (window.authManager) {
+                window.authManager.showNotification('Email change system not available', 'error');
+            }
+        }
     }
 
     async saveDisplayName() {
@@ -150,4 +197,18 @@ class ProfessionalSettingsManager {
 }
 
 // Initialize global instance
-window.professionalSettings = new ProfessionalSettingsManager();
+if (typeof window !== 'undefined') {
+    window.professionalSettings = new ProfessionalSettingsManager();
+    
+    // Debug: Ensure the manager is available
+    console.log('Professional Settings Manager initialized:', window.professionalSettings);
+    
+    // Ensure it's available after DOM is loaded
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, Professional Settings Manager available:', window.professionalSettings);
+        });
+    }
+} else {
+    console.error('Window object not available for Professional Settings Manager');
+}

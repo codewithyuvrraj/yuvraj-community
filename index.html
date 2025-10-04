@@ -2517,9 +2517,20 @@
             }
             
             showProfessionalSettings() {
+                console.log('showProfessionalSettings called');
+                console.log('Current user:', this.currentUser);
+                console.log('Professional settings manager:', window.professionalSettings);
+                
                 // Close current settings modal
                 const currentModal = document.getElementById('settingsOverlay');
                 if (currentModal) currentModal.remove();
+                
+                // Ensure professional settings manager exists
+                if (!window.professionalSettings) {
+                    console.error('Professional settings manager not found');
+                    this.showNotification('Professional settings not available', 'error');
+                    return;
+                }
                 
                 // Initialize and show professional settings
                 window.professionalSettings.init(this.currentUser);
