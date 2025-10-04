@@ -146,11 +146,11 @@ class ProfessionalSettingsManager {
             overlay.remove();
         }
         
-        // Use real email change manager
-        if (window.realEmailChangeManager) {
-            await window.realEmailChangeManager.requestEmailChange(newEmail);
+        // Use debug email change manager for troubleshooting
+        if (window.debugEmailManager) {
+            await window.debugEmailManager.requestEmailChange(newEmail);
         } else {
-            console.error('Real email change manager not found');
+            console.error('Debug email change manager not found');
             if (window.authManager) {
                 window.authManager.showNotification('Email change system not available', 'error');
             }
