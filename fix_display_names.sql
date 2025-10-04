@@ -17,7 +17,8 @@ SET display_name = username
 WHERE (display_name = '' OR display_name IS NULL) AND username IS NOT NULL;
 
 -- Update the profile creation function to include display_name
-CREATE OR REPLACE FUNCTION create_profile_manually(
+DROP FUNCTION IF EXISTS create_profile_manually(uuid,text,text,text);
+CREATE FUNCTION create_profile_manually(
     user_id UUID,
     user_email TEXT,
     user_username TEXT,
