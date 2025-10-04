@@ -13,9 +13,9 @@ CREATE TABLE IF NOT EXISTS email_service_config (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Insert default EmailJS configuration (to be updated with real values)
+-- Insert EmailJS configuration with real credentials
 INSERT INTO email_service_config (service_name, service_id, template_id, is_active)
-VALUES ('emailjs', 'your_service_id', 'your_template_id', true)
+VALUES ('emailjs', 'service_tvwdsjv', 'template_uk3cpsh', true)
 ON CONFLICT DO NOTHING;
 
 -- Create email logs table for tracking sent emails
@@ -35,13 +35,16 @@ ALTER TABLE email_service_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE email_logs ENABLE ROW LEVEL SECURITY;
 
 -- RLS policies for email_service_config (admin only)
+DROP POLICY IF EXISTS "Admin can manage email config" ON email_service_config;
 CREATE POLICY "Admin can manage email config" ON email_service_config
     FOR ALL USING (auth.jwt() ->> 'role' = 'admin');
 
 -- RLS policies for email_logs (users can see their own logs)
+DROP POLICY IF EXISTS "Users can view own email logs" ON email_logs;
 CREATE POLICY "Users can view own email logs" ON email_logs
     FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "System can insert email logs" ON email_logs;
 CREATE POLICY "System can insert email logs" ON email_logs
     FOR INSERT WITH CHECK (true);
 

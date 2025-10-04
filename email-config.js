@@ -11,10 +11,10 @@
 const EMAIL_CONFIG = {
     // EmailJS Configuration
     emailjs: {
-        publicKey: 'YOUR_EMAILJS_PUBLIC_KEY',     // Replace with your EmailJS public key
-        serviceId: 'YOUR_SERVICE_ID',             // Replace with your service ID
-        templateId: 'YOUR_TEMPLATE_ID',           // Replace with your template ID
-        enabled: false                            // Set to true when configured
+        publicKey: '13eiwqw5g1bnVdLu-',          // Your EmailJS public key
+        serviceId: 'service_tvwdsjv',             // Your service ID
+        templateId: 'template_uk3cpsh',           // Your template ID
+        enabled: true                             // Enabled with real credentials
     },
     
     // Supabase Edge Function Configuration (Alternative)
