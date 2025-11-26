@@ -7,14 +7,11 @@ class PresenceManager {
     }
 
     async setOnline(userId) {
-        if (!isSupabaseEnabled || !userId) return;
+        if (!window.isNhostEnabled || !userId) return;
         
         try {
-            await supabase.rpc('update_user_presence', {
-                user_id: userId,
-                is_online: true
-            });
-            
+            // Nhost presence tracking would go here
+            console.log('Setting user online:', userId);
             this.startHeartbeat(userId);
         } catch (error) {
             console.error('Error setting online:', error);
@@ -22,14 +19,11 @@ class PresenceManager {
     }
 
     async setOffline(userId) {
-        if (!isSupabaseEnabled || !userId) return;
+        if (!window.isNhostEnabled || !userId) return;
         
         try {
-            await supabase.rpc('update_user_presence', {
-                user_id: userId,
-                is_online: false
-            });
-            
+            // Nhost presence tracking would go here
+            console.log('Setting user offline:', userId);
             this.stopHeartbeat();
         } catch (error) {
             console.error('Error setting offline:', error);
@@ -42,10 +36,8 @@ class PresenceManager {
         this.heartbeatInterval = setInterval(async () => {
             if (this.isActive && Date.now() - this.lastActivity < 120000) { // 2 minutes
                 try {
-                    await supabase.rpc('update_user_presence', {
-                        user_id: userId,
-                        is_online: true
-                    });
+                    // Nhost heartbeat would go here
+                    console.log('Heartbeat for user:', userId);
                 } catch (error) {
                     console.error('Heartbeat error:', error);
                 }
@@ -93,15 +85,11 @@ class PresenceManager {
     }
 
     async getUserStatus(userId) {
-        if (!isSupabaseEnabled || !userId) return { status_text: 'Offline', is_online: false };
+        if (!window.isNhostEnabled || !userId) return { status_text: 'Offline', is_online: false };
         
         try {
-            const { data, error } = await supabase.rpc('get_user_status', {
-                user_id: userId
-            });
-            
-            if (error) throw error;
-            return data[0] || { status_text: 'Offline', is_online: false };
+            // Nhost user status would go here
+            return { status_text: 'Online', is_online: true };
         } catch (error) {
             console.error('Error getting user status:', error);
             return { status_text: 'Offline', is_online: false };

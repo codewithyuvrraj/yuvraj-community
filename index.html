@@ -8,7 +8,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     
     <!-- Nhost SDK -->
-    <script src="https://unpkg.com/@nhost/nhost-js@latest"></script>
+    <script src="https://unpkg.com/@nhost/nhost-js@2.2.16/dist/index.umd.js"></script>
     <!-- Registration Fix -->
     <script src="registration-fix.js"></script>
     <!-- Simple Instant Chat -->
@@ -1761,17 +1761,24 @@
         let isNhostEnabled = false;
 
         try {
-            nhost = new window.NhostClient({
-                subdomain: NHOST_SUBDOMAIN,
-                region: NHOST_REGION
-            });
-            isNhostEnabled = true;
+            // Wait for Nhost to load
+            if (typeof window.NhostClient !== 'undefined') {
+                nhost = new window.NhostClient({
+                    subdomain: NHOST_SUBDOMAIN,
+                    region: NHOST_REGION
+                });
+                isNhostEnabled = true;
+                console.log('Nhost initialized successfully');
+            } else {
+                console.log('Nhost client not available, using fallback');
+                isNhostEnabled = false;
+            }
+            
             // Make globally accessible
             window.nhost = nhost;
-            window.isNhostEnabled = true;
+            window.isNhostEnabled = isNhostEnabled;
             window.NHOST_SUBDOMAIN = NHOST_SUBDOMAIN;
             window.NHOST_REGION = NHOST_REGION;
-            console.log('Nhost initialized successfully');
         } catch (error) {
             console.log('Nhost initialization error:', error);
             isNhostEnabled = false;
@@ -1836,7 +1843,7 @@
                 const password = document.getElementById('loginPassword').value;
 
                 try {
-                    if (isNhostEnabled) {
+                    if (window.isNhostEnabled) {
                         console.log('Attempting Nhost login for:', email);
                         
                         // Try Nhost Auth
@@ -1939,10 +1946,11 @@
                 }
 
                 try {
-                    if (isNhostEnabled) {
+                    if (window.isNhostEnabled) {
                         console.log('Using Nhost for signup');
                         
                         // Register with Nhost Auth
+                        console.log('Attempting Nhost signup for:', email);
                         const { session, error: authError } = await nhost.auth.signUp({
                             email: email,
                             password: password,
@@ -1952,8 +1960,16 @@
                         });
                         
                         if (authError) {
-                            throw new Error(authError.message);
+                            console.error('Nhost auth error:', authError);
+                            throw new Error(authError.message || 'Authentication failed');
                         }
+                        
+                        if (!session || !session.user) {
+                            console.error('No session returned from Nhost');
+                            throw new Error('Registration failed - no session created');
+                        }
+                        
+                        console.log('Nhost auth successful, creating user profile for UID:', session.user.id);
                         
                         // Create user profile in users table
                         const { data: userData, error: userError } = await nhost.graphql.request(`
@@ -1976,16 +1992,50 @@
                                 username: username,
                                 full_name: fullName,
                                 email: email,
-                                password_hash: 'managed_by_nhost',
-                                is_active: true
+                                is_active: true,
+                                bio: null,
+                                avatar_url: null
                             }
                         });
                         
                         if (userError) {
-                            throw new Error(userError.message);
+                            console.error('User creation error:', userError);
+                            // Check if user already exists
+                            if (userError.message && userError.message.includes('Uniqueness violation')) {
+                                console.log('User already exists, fetching existing profile');
+                                const { data: existingUser, error: fetchError } = await nhost.graphql.request(`
+                                    query GetUser($id: uuid!) {
+                                        users_by_pk(id: $id) {
+                                            id
+                                            username
+                                            full_name
+                                            email
+                                            avatar_url
+                                            bio
+                                            created_at
+                                            updated_at
+                                            is_active
+                                        }
+                                    }
+                                `, { id: session.user.id });
+                                
+                                if (fetchError || !existingUser.data.users_by_pk) {
+                                    throw new Error('Failed to fetch existing user profile');
+                                }
+                                
+                                this.currentUser = existingUser.data.users_by_pk;
+                            } else {
+                                throw new Error(userError.message || 'Failed to create user profile');
+                            }
+                        } else {
+                            if (!userData || !userData.data || !userData.data.insert_users_one) {
+                                console.error('No user data returned:', userData);
+                                throw new Error('Failed to create user profile - no data returned');
+                            }
+                            this.currentUser = userData.data.insert_users_one;
                         }
                         
-                        this.currentUser = userData.data.insert_users_one;
+                        console.log('User profile ready:', this.currentUser);
                         this.showNotification('Account created successfully!', 'success');
                         
                         // Store user data locally as backup
@@ -2084,7 +2134,7 @@
 
             async logout() {
                 try {
-                    if (isNhostEnabled && this.currentUser) {
+                    if (window.isNhostEnabled && this.currentUser) {
                         await nhost.auth.signOut();
                     }
                 } catch (error) {
@@ -2281,7 +2331,7 @@
                     
                     let photoUrl;
                     
-                    if (isNhostEnabled) {
+                    if (window.isNhostEnabled) {
                         // Use Nhost storage for file upload
                         const fileName = `profile_${this.currentUser.id}_${Date.now()}.${file.name.split('.').pop()}`;
                         
@@ -2601,7 +2651,7 @@
             async loadHomeFeed() {
                 const homeFeed = document.getElementById('homeFeed');
                 
-                if (!isNhostEnabled) {
+                if (!window.isNhostEnabled) {
                     homeFeed.innerHTML = `
                         <div class="feed-header">
                             <h2><i class="fas fa-briefcase"></i> Welcome, ${this.currentUser.full_name || this.currentUser.username}</h2>
@@ -2736,7 +2786,7 @@
                         auto_reply: document.getElementById('autoReply').value
                     };
                     
-                    if (isNhostEnabled) {
+                    if (window.isNhostEnabled) {
                         const { error } = await nhost.graphql.request(`
                             mutation UpdateUser($id: uuid!, $updates: users_set_input!) {
                                 update_users_by_pk(pk_columns: {id: $id}, _set: $updates) {
@@ -2773,7 +2823,7 @@
                 try {
                     let user;
                     let isFollowing = false;
-                    if (isNhostEnabled) {
+                    if (window.isNhostEnabled) {
                         // Get user profile
                         const { data: profileData, error: profileError } = await nhost.graphql.request(`
                             query GetUser($id: uuid!) {
@@ -2906,7 +2956,7 @@
             }
 
             async makeUsersGloballyAccessible() {
-                if (!isNhostEnabled) return;
+                if (!window.isNhostEnabled) return;
                 
                 try {
                     // Test connection and cache users
@@ -2934,12 +2984,12 @@
                     }
                 } catch (error) {
                     console.error('❌ Connection failed:', error);
-                    isNhostEnabled = false;
+                    window.isNhostEnabled = false;
                 }
             }
             
             async getAllUsersGlobally() {
-                if (isNhostEnabled) {
+                if (window.isNhostEnabled) {
                     try {
                         const { data, error } = await nhost.graphql.request(`
                             query GetAllUsers {
@@ -3097,7 +3147,7 @@
                 let joinRequests = [];
                 let groupNotifications = [];
                 
-                if (isNhostEnabled) {
+                if (window.isNhostEnabled) {
                     try {
                         // For now, use empty arrays since notifications aren't implemented in Nhost schema yet
                         notifications = [];
@@ -3225,7 +3275,7 @@
                 let messagesCount = 0;
                 let profileViews = { total_views: 0, today_views: 0, week_views: 0 };
                 
-                if (isNhostEnabled) {
+                if (window.isNhostEnabled) {
                     try {
                         // Get basic stats from Nhost
                         const { data: usersData } = await nhost.graphql.request(`
@@ -3310,7 +3360,7 @@
             
             async loadInfluencerStatus() {
                 try {
-                    if (isNhostEnabled && this.currentUser) {
+                    if (window.isNhostEnabled && this.currentUser) {
                         // Check influencer status from user profile
                         const { data, error } = await nhost.graphql.request(`
                             query GetUserInfluencerStatus($id: uuid!) {
@@ -3428,7 +3478,7 @@
                 await new Promise(resolve => setTimeout(resolve, 5500));
                 
                 try {
-                    if (isNhostEnabled) {
+                    if (window.isNhostEnabled) {
                         const { error } = await nhost.graphql.request(`
                             mutation UpdateInfluencerStatus($id: uuid!, $is_influencer_business: Boolean!, $influencer_activated_at: timestamptz!) {
                                 update_users_by_pk(pk_columns: {id: $id}, _set: {
@@ -3510,7 +3560,7 @@
             
             async disableInfluencerMode() {
                 try {
-                    if (isNhostEnabled) {
+                    if (window.isNhostEnabled) {
                         const { error } = await nhost.graphql.request(`
                             mutation DisableInfluencerStatus($id: uuid!) {
                                 update_users_by_pk(pk_columns: {id: $id}, _set: {
@@ -3689,40 +3739,57 @@
             }
             
             async showCreatedGroups() {
+                if (!window.isNhostEnabled || !window.nhost?.auth?.getUser()) {
+                    console.log('Nhost not available for groups');
+                    return;
+                }
+                
                 try {
                     // Update tab styling
-                    document.getElementById('createdGroupsTab').style.background = '#10b981';
-                    document.getElementById('joinedGroupsTab').style.background = '#6b7280';
+                    const createdTab = document.getElementById('createdGroupsTab');
+                    const joinedTab = document.getElementById('joinedGroupsTab');
+                    if (createdTab) createdTab.style.background = '#10b981';
+                    if (joinedTab) joinedTab.style.background = '#6b7280';
                     
-                    const { data: groups, error } = await supabase
-                        .from('groups')
-                        .select('*')
-                        .eq('creator_id', this.currentUser.id);
+                    const user = window.nhost.auth.getUser();
+                    const { data, error } = await window.nhost.graphql.request(`
+                        query MyCreatedGroups($userId: uuid!) {
+                            groups(where: { created_by: { _eq: $userId } }, order_by: { created_at: desc }) {
+                                id
+                                name
+                                description
+                                created_at
+                            }
+                        }
+                    `, { userId: user.id });
                     
                     if (error) throw error;
                     
+                    const groups = data?.groups || [];
                     const content = document.getElementById('groupsTabContent');
-                    if (groups && groups.length > 0) {
-                        content.innerHTML = groups.map(group => `
-                            <div onclick="window.authManager.viewGroupMembers('${group.id}', '${group.name}')" style="display: flex; align-items: center; padding: 16px; background: #f0fdf4; border-radius: 12px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; border-left: 4px solid #10b981;">
-                                <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #10b981, #059669); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 18px; margin-right: 16px;">
-                                    ${group.name.charAt(0).toUpperCase()}
+                    if (content) {
+                        if (groups.length > 0) {
+                            content.innerHTML = groups.map(group => `
+                                <div onclick="window.authManager.viewGroupMembers('${group.id}', '${group.name}')" style="display: flex; align-items: center; padding: 16px; background: #f0fdf4; border-radius: 12px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; border-left: 4px solid #10b981;">
+                                    <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #10b981, #059669); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 18px; margin-right: 16px;">
+                                        ${group.name.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div style="flex: 1; text-align: left;">
+                                        <div style="font-weight: 600; font-size: 16px; color: #1f2937; margin-bottom: 4px;">${group.name} <span style="background: #10b981; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px;">CREATOR</span></div>
+                                        <div style="color: #6b7280; font-size: 14px;">${group.description || 'No description'}</div>
+                                    </div>
+                                    <i class="fas fa-chevron-right" style="color: #10b981;"></i>
                                 </div>
-                                <div style="flex: 1; text-align: left;">
-                                    <div style="font-weight: 600; font-size: 16px; color: #1f2937; margin-bottom: 4px;">${group.name} <span style="background: #10b981; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px;">CREATOR</span></div>
-                                    <div style="color: #6b7280; font-size: 14px;">${group.description || 'No description'}</div>
+                            `).join('');
+                        } else {
+                            content.innerHTML = `
+                                <div style="text-align: center; padding: 40px 20px; color: #6b7280;">
+                                    <i class="fas fa-users" style="font-size: 48px; margin-bottom: 16px;"></i>
+                                    <h3>No Groups Created</h3>
+                                    <p>You haven't created any groups yet.</p>
                                 </div>
-                                <i class="fas fa-chevron-right" style="color: #10b981;"></i>
-                            </div>
-                        `).join('');
-                    } else {
-                        content.innerHTML = `
-                            <div style="text-align: center; padding: 40px 20px; color: #6b7280;">
-                                <i class="fas fa-users" style="font-size: 48px; margin-bottom: 16px;"></i>
-                                <h3>No Groups Created</h3>
-                                <p>You haven't created any groups yet.</p>
-                            </div>
-                        `;
+                            `;
+                        }
                     }
                 } catch (error) {
                     console.error('Error loading created groups:', error);
@@ -3731,62 +3798,59 @@
             }
             
             async showJoinedGroups() {
+                if (!window.isNhostEnabled || !window.nhost?.auth?.getUser()) {
+                    console.log('Nhost not available for joined groups');
+                    return;
+                }
+                
                 try {
                     // Update tab styling
-                    document.getElementById('createdGroupsTab').style.background = '#6b7280';
-                    document.getElementById('joinedGroupsTab').style.background = '#10b981';
+                    const createdTab = document.getElementById('createdGroupsTab');
+                    const joinedTab = document.getElementById('joinedGroupsTab');
+                    if (createdTab) createdTab.style.background = '#6b7280';
+                    if (joinedTab) joinedTab.style.background = '#10b981';
                     
-                    // Get groups where user is a member but not creator
-                    const { data: memberGroups, error } = await supabase
-                        .from('group_members')
-                        .select('group_id')
-                        .eq('user_id', this.currentUser.id);
+                    const user = window.nhost.auth.getUser();
+                    const { data, error } = await window.nhost.graphql.request(`
+                        query MyJoinedGroups($userId: uuid!) {
+                            group_members(where: { user_id: { _eq: $userId } }) {
+                                group {
+                                    id
+                                    name
+                                    description
+                                    created_at
+                                }
+                            }
+                        }
+                    `, { userId: user.id });
                     
                     if (error) throw error;
                     
-                    const groupIds = memberGroups?.map(m => m.group_id) || [];
-                    
-                    if (groupIds.length === 0) {
-                        document.getElementById('groupsTabContent').innerHTML = `
-                            <div style="text-align: center; padding: 40px 20px; color: #6b7280;">
-                                <i class="fas fa-user-plus" style="font-size: 48px; margin-bottom: 16px;"></i>
-                                <h3>No Groups Joined</h3>
-                                <p>You haven't been added to any groups yet.</p>
-                            </div>
-                        `;
-                        return;
-                    }
-                    
-                    const { data: groups, error: groupsError } = await supabase
-                        .from('groups')
-                        .select('*')
-                        .in('id', groupIds)
-                        .neq('creator_id', this.currentUser.id);
-                    
-                    if (groupsError) throw groupsError;
-                    
+                    const groups = data?.group_members?.map(item => item.group) || [];
                     const content = document.getElementById('groupsTabContent');
-                    if (groups && groups.length > 0) {
-                        content.innerHTML = groups.map(group => `
-                            <div onclick="window.authManager.viewGroupMembers('${group.id}', '${group.name}')" style="display: flex; align-items: center; padding: 16px; background: #eff6ff; border-radius: 12px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; border-left: 4px solid #3b82f6;">
-                                <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #1d4ed8); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 18px; margin-right: 16px;">
-                                    ${group.name.charAt(0).toUpperCase()}
+                    if (content) {
+                        if (groups.length > 0) {
+                            content.innerHTML = groups.map(group => `
+                                <div onclick="window.authManager.viewGroupMembers('${group.id}', '${group.name}')" style="display: flex; align-items: center; padding: 16px; background: #eff6ff; border-radius: 12px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; border-left: 4px solid #3b82f6;">
+                                    <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #1d4ed8); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 18px; margin-right: 16px;">
+                                        ${group.name.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div style="flex: 1; text-align: left;">
+                                        <div style="font-weight: 600; font-size: 16px; color: #1f2937; margin-bottom: 4px;">${group.name} <span style="background: #3b82f6; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px;">MEMBER</span></div>
+                                        <div style="color: #6b7280; font-size: 14px;">${group.description || 'No description'}</div>
+                                    </div>
+                                    <i class="fas fa-chevron-right" style="color: #3b82f6;"></i>
                                 </div>
-                                <div style="flex: 1; text-align: left;">
-                                    <div style="font-weight: 600; font-size: 16px; color: #1f2937; margin-bottom: 4px;">${group.name} <span style="background: #3b82f6; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px;">MEMBER</span></div>
-                                    <div style="color: #6b7280; font-size: 14px;">${group.description || 'No description'}</div>
+                            `).join('');
+                        } else {
+                            content.innerHTML = `
+                                <div style="text-align: center; padding: 40px 20px; color: #6b7280;">
+                                    <i class="fas fa-user-plus" style="font-size: 48px; margin-bottom: 16px;"></i>
+                                    <h3>No Groups Joined</h3>
+                                    <p>You haven't been added to any groups by others yet.</p>
                                 </div>
-                                <i class="fas fa-chevron-right" style="color: #3b82f6;"></i>
-                            </div>
-                        `).join('');
-                    } else {
-                        content.innerHTML = `
-                            <div style="text-align: center; padding: 40px 20px; color: #6b7280;">
-                                <i class="fas fa-user-plus" style="font-size: 48px; margin-bottom: 16px;"></i>
-                                <h3>No Groups Joined</h3>
-                                <p>You haven't been added to any groups by others yet.</p>
-                            </div>
-                        `;
+                            `;
+                        }
                     }
                 } catch (error) {
                     console.error('Error loading joined groups:', error);
@@ -3795,37 +3859,51 @@
             }
             
             async showMyCreatedChannels() {
+                if (!window.isNhostEnabled || !window.nhost?.auth?.getUser()) {
+                    console.log('Nhost not available for channels');
+                    return;
+                }
+                
                 try {
-                    // Only show channels created by the user (not joined ones)
-                    const { data: channels, error } = await supabase
-                        .from('channels')
-                        .select('*')
-                        .eq('creator_id', this.currentUser.id);
+                    const user = window.nhost.auth.getUser();
+                    const { data, error } = await window.nhost.graphql.request(`
+                        query MyCreatedChannels($userId: uuid!) {
+                            channels(where: { created_by: { _eq: $userId } }, order_by: { created_at: desc }) {
+                                id
+                                name
+                                description
+                                created_at
+                            }
+                        }
+                    `, { userId: user.id });
                     
                     if (error) throw error;
                     
+                    const channels = data?.channels || [];
                     const content = document.getElementById('membersContent');
-                    if (channels && channels.length > 0) {
-                        content.innerHTML = channels.map(channel => `
-                            <div onclick="window.authManager.viewChannelMembers('${channel.id}', '${channel.name}')" style="display: flex; align-items: center; padding: 16px; background: #fef3c7; border-radius: 12px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; border-left: 4px solid #f59e0b;">
-                                <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #f59e0b, #d97706); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 18px; margin-right: 16px;">
-                                    ${channel.name.charAt(0).toUpperCase()}
+                    if (content) {
+                        if (channels.length > 0) {
+                            content.innerHTML = channels.map(channel => `
+                                <div onclick="window.authManager.viewChannelMembers('${channel.id}', '${channel.name}')" style="display: flex; align-items: center; padding: 16px; background: #fef3c7; border-radius: 12px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; border-left: 4px solid #f59e0b;">
+                                    <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #f59e0b, #d97706); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 18px; margin-right: 16px;">
+                                        ${channel.name.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div style="flex: 1; text-align: left;">
+                                        <div style="font-weight: 600; font-size: 16px; color: #1f2937; margin-bottom: 4px;">${channel.name} <span style="background: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px;">CREATOR</span></div>
+                                        <div style="color: #6b7280; font-size: 14px;">${channel.description || 'No description'}</div>
+                                    </div>
+                                    <i class="fas fa-chevron-right" style="color: #f59e0b;"></i>
                                 </div>
-                                <div style="flex: 1; text-align: left;">
-                                    <div style="font-weight: 600; font-size: 16px; color: #1f2937; margin-bottom: 4px;">${channel.name} <span style="background: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px;">CREATOR</span></div>
-                                    <div style="color: #6b7280; font-size: 14px;">${channel.description || 'No description'}</div>
+                            `).join('');
+                        } else {
+                            content.innerHTML = `
+                                <div style="text-align: center; padding: 40px 20px; color: #6b7280;">
+                                    <i class="fas fa-broadcast-tower" style="font-size: 48px; margin-bottom: 16px;"></i>
+                                    <h3>No Channels Created</h3>
+                                    <p>You haven't created any channels yet.</p>
                                 </div>
-                                <i class="fas fa-chevron-right" style="color: #f59e0b;"></i>
-                            </div>
-                        `).join('');
-                    } else {
-                        content.innerHTML = `
-                            <div style="text-align: center; padding: 40px 20px; color: #6b7280;">
-                                <i class="fas fa-broadcast-tower" style="font-size: 48px; margin-bottom: 16px;"></i>
-                                <h3>No Channels Created</h3>
-                                <p>You haven't created any channels yet.</p>
-                            </div>
-                        `;
+                            `;
+                        }
                     }
                 } catch (error) {
                     console.error('Error loading created channels:', error);
@@ -3834,26 +3912,28 @@
             }
             
             async viewGroupMembers(groupId, groupName) {
+                if (!window.isNhostEnabled) {
+                    this.showNotification('Group members feature requires database connection', 'error');
+                    return;
+                }
+                
                 try {
-                    // Get group members with profiles using join
-                    const { data: members, error } = await supabase
-                        .from('group_members')
-                        .select(`
-                            user_id,
-                            profiles!group_members_user_id_fkey(
-                                id,
-                                full_name,
-                                username,
-                                profile_photo,
-                                job_title,
-                                company
-                            )
-                        `)
-                        .eq('group_id', groupId);
+                    const { data, error } = await window.nhost.graphql.request(`
+                        query GetGroupMembers($groupId: uuid!) {
+                            group_members(where: { group_id: { _eq: $groupId } }) {
+                                user {
+                                    id
+                                    full_name
+                                    username
+                                    avatar_url
+                                }
+                            }
+                        }
+                    `, { groupId });
                     
                     if (error) throw error;
                     
-                    const memberProfiles = members?.map(member => member.profiles).filter(Boolean) || [];
+                    const memberProfiles = data?.group_members?.map(member => member.user).filter(Boolean) || [];
                     
                     this.displayMembersModal(memberProfiles, groupName, 'group', groupId);
                     
@@ -3864,23 +3944,28 @@
             }
             
             async viewChannelMembers(channelId, channelName) {
+                if (!window.isNhostEnabled) {
+                    this.showNotification('Channel members feature requires database connection', 'error');
+                    return;
+                }
+                
                 try {
-                    const { data: members, error } = await supabase
-                        .from('channel_members')
-                        .select('user_id')
-                        .eq('channel_id', channelId);
+                    const { data, error } = await window.nhost.graphql.request(`
+                        query GetChannelMembers($channelId: uuid!) {
+                            channel_members(where: { channel_id: { _eq: $channelId } }) {
+                                user {
+                                    id
+                                    full_name
+                                    username
+                                    avatar_url
+                                }
+                            }
+                        }
+                    `, { channelId });
                     
                     if (error) throw error;
                     
-                    const memberProfiles = [];
-                    for (let member of members || []) {
-                        const { data: profile } = await supabase
-                            .from('profiles')
-                            .select('*')
-                            .eq('id', member.user_id)
-                            .single();
-                        if (profile) memberProfiles.push(profile);
-                    }
+                    const memberProfiles = data?.channel_members?.map(member => member.user).filter(Boolean) || [];
                     
                     this.displayMembersModal(memberProfiles, channelName, 'channel', null, channelId);
                     
@@ -3947,33 +4032,46 @@
             
             async toggleFollowFromProfile(userId) {
                 const btn = document.getElementById(`profileFollowBtn_${userId}`);
+                if (!btn) return;
+                
                 const isCurrentlyFollowing = btn.textContent.trim() === 'Unfollow';
                 
                 btn.disabled = true;
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
                 
                 try {
-                    if (isCurrentlyFollowing) {
-                        // Unfollow
-                        await supabase
-                            .from('follows')
-                            .delete()
-                            .eq('follower_id', this.currentUser.id)
-                            .eq('following_id', userId);
-                        
-                        btn.innerHTML = '<i class="fas fa-user-plus"></i> Follow';
-                        btn.style.background = '#10b981';
-                    } else {
-                        // Follow
-                        await supabase
-                            .from('follows')
-                            .insert({
+                    if (window.isNhostEnabled) {
+                        if (isCurrentlyFollowing) {
+                            // Unfollow
+                            await window.nhost.graphql.request(`
+                                mutation UnfollowUser($follower_id: uuid!, $following_id: uuid!) {
+                                    delete_followers(where: { follower_id: { _eq: $follower_id }, following_id: { _eq: $following_id } }) {
+                                        affected_rows
+                                    }
+                                }
+                            `, {
                                 follower_id: this.currentUser.id,
                                 following_id: userId
                             });
-                        
-                        btn.innerHTML = '<i class="fas fa-user-minus"></i> Unfollow';
-                        btn.style.background = '#ef4444';
+                            
+                            btn.innerHTML = '<i class="fas fa-user-plus"></i> Follow';
+                            btn.style.background = '#10b981';
+                        } else {
+                            // Follow
+                            await window.nhost.graphql.request(`
+                                mutation FollowUser($follower_id: uuid!, $following_id: uuid!) {
+                                    insert_followers_one(object: { follower_id: $follower_id, following_id: $following_id }) {
+                                        id
+                                    }
+                                }
+                            `, {
+                                follower_id: this.currentUser.id,
+                                following_id: userId
+                            });
+                            
+                            btn.innerHTML = '<i class="fas fa-user-minus"></i> Unfollow';
+                            btn.style.background = '#ef4444';
+                        }
                     }
                     
                     btn.disabled = false;
@@ -3983,18 +4081,97 @@
                     console.error('Toggle follow error:', error);
                     btn.disabled = false;
                     btn.innerHTML = isCurrentlyFollowing ? '<i class="fas fa-user-minus"></i> Unfollow' : '<i class="fas fa-user-plus"></i> Follow';
+                    this.showNotification('Failed to update follow status', 'error');
                 }
             }
             
             showInfluencerBusiness() {
                 this.showMyGroups();
             }
-
-
+            
+            // Groups and Channels Functions
+            async showMyGroups() {
+                if (!window.isNhostEnabled) {
+                    this.showNotification('Groups feature requires database connection', 'error');
+                    return;
+                }
+                this.showNotification('Groups feature coming soon!', 'success');
+            }
+            
+            async showJoinedGroups() {
+                if (!window.isNhostEnabled) {
+                    this.showNotification('Groups feature requires database connection', 'error');
+                    return;
+                }
+                this.showNotification('Joined Groups feature coming soon!', 'success');
+            }
+            
+            async showMyChannels() {
+                if (!window.isNhostEnabled) {
+                    this.showNotification('Channels feature requires database connection', 'error');
+                    return;
+                }
+                this.showNotification('Channels feature coming soon!', 'success');
+            }
+            
+            async showJoinedChannels() {
+                if (!window.isNhostEnabled) {
+                    this.showNotification('Channels feature requires database connection', 'error');
+                    return;
+                }
+                this.showNotification('Joined Channels feature coming soon!', 'success');
+            }
+            
+            toggleGroupsChannelsDropdown() {
+                const dropdown = document.getElementById('groupsChannelsDropdown');
+                if (dropdown) {
+                    dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+                }
+            }
+            
+            hideGroupsChannelsDropdown() {
+                const dropdown = document.getElementById('groupsChannelsDropdown');
+                if (dropdown) {
+                    dropdown.style.display = 'none';
+                }
+            }
+            
+            // Additional missing functions
+            async updateNotificationBadge() {
+                const badge = document.getElementById('notificationBadge');
+                if (badge) {
+                    badge.style.display = 'none';
+                }
+            }
+            
+            async setupPresenceTracking() {
+                console.log('Presence tracking setup');
+            }
+            
+            async showSearchModal() {
+                window.open('search.html', '_blank', 'width=800,height=600');
+            }
+            
+            getCurrentUser() {
+                return this.currentUser;
+            }
+            
+            getUserById(userId) {
+                const users = JSON.parse(localStorage.getItem('businessconnect_all_users') || '[]');
+                return users.find(u => u.id === userId);
+            }
+            
+            async checkMessageLockAndStart(userId) {
+                if (window.chatManager) {
+                    window.chatManager.startConversation(userId);
+                } else {
+                    this.showNotification('Chat manager not available', 'error');
+                }
+            }
 
             
             async getConversationsList() {
-                if (!isNhostEnabled) return '<div class="welcome-message"><i class="fas fa-comments"></i><h3>No conversations yet</h3><p>Start messaging your connections</p></div>';
+                if (!window.isNhostEnabled) return '<div class="welcome-message"><i class="fas fa-comments"></i><h3>No conversations yet</h3><p>Start messaging your connections</p></div>';
                 
                 try {
                     // Get conversations from Nhost
@@ -4175,7 +4352,7 @@
             async showJoinedGroups() {
                 let groups = [];
                 
-                if (isSupabaseEnabled) {
+                if (window.isNhostEnabled) {
                     try {
                         // Get groups where user is a member
                         const { data: memberGroups, error } = await supabase
@@ -4259,7 +4436,7 @@
             async showJoinedChannels() {
                 let channels = [];
                 
-                if (isSupabaseEnabled) {
+                if (window.isNhostEnabled) {
                     try {
                         const { data, error } = await supabase
                             .rpc('get_user_joined_channels', { user_id_param: this.currentUser.id });
@@ -4381,7 +4558,7 @@
                 try {
                     let users = [];
                     
-                    if (isSupabaseEnabled) {
+                    if (window.isNhostEnabled) {
                         // Use the new active users search function
                         
                         // Direct search in profiles table
@@ -4508,7 +4685,7 @@
             
             async followUserFromSearch(userId) {
                 try {
-                    if (isSupabaseEnabled) {
+                    if (window.isNhostEnabled) {
                         const { error } = await supabase
                             .from('follows')
                             .insert({
@@ -4689,7 +4866,7 @@
             async showMyGroups() {
                 let groups = [];
                 
-                if (isSupabaseEnabled) {
+                if (window.isNhostEnabled) {
                     try {
                         const { data, error } = await supabase
                             .from('groups')
@@ -4752,7 +4929,7 @@
             async showMyChannels() {
                 let channels = [];
                 
-                if (isSupabaseEnabled) {
+                if (window.isNhostEnabled) {
                     try {
                         const { data, error } = await supabase
                             .from('channels')
@@ -4895,7 +5072,7 @@
                 
                 try {
                     // Save deleted conversation to database first
-                    if (isSupabaseEnabled) {
+                    if (window.isNhostEnabled) {
                         await supabase
                             .from('deleted_conversations')
                             .insert({
@@ -4971,7 +5148,7 @@
                 
                 try {
                     // Save deleted conversation to database first
-                    if (isSupabaseEnabled) {
+                    if (window.isNhostEnabled) {
                         await supabase
                             .from('deleted_conversations')
                             .insert({
@@ -5047,7 +5224,7 @@
             }
             
             async deleteChatForMe(conversationId) {
-                if (!isSupabaseEnabled || !this.currentUser) return;
+                if (!window.isNhostEnabled || !this.currentUser) return;
                 
                 try {
                     // Delete all messages in this conversation
@@ -5091,7 +5268,7 @@
 
             
             async updateNotificationBadge() {
-                if (!isSupabaseEnabled || !this.currentUser) return;
+                if (!window.isNhostEnabled || !this.currentUser) return;
                 
                 try {
                     // Get follow notifications count
@@ -5130,7 +5307,7 @@
             
             async handleNotificationClick(notificationId, followerId) {
                 // Mark notification as read
-                if (isSupabaseEnabled) {
+                if (window.isNhostEnabled) {
                     try {
                         await supabase
                             .rpc('mark_notification_read', { 
@@ -5160,7 +5337,7 @@
             
             async handleGroupNotificationClick(notificationId, groupOrChannelId, notificationType) {
                 // Mark group notification as read
-                if (isSupabaseEnabled && window.groupNotificationManager) {
+                if (window.isNhostEnabled && window.groupNotificationManager) {
                     try {
                         await window.groupNotificationManager.markGroupNotificationRead(notificationId, this.currentUser.id);
                     } catch (error) {
@@ -5188,7 +5365,7 @@
             
             async handleNotificationClick(notificationId, followerId) {
                 // Mark notification as read
-                if (isSupabaseEnabled) {
+                if (window.isNhostEnabled) {
                     try {
                         await supabase
                             .rpc('mark_notification_read', { 
@@ -5211,7 +5388,7 @@
             }
             
             async markAllNotificationsRead() {
-                if (!isSupabaseEnabled || !this.currentUser) return;
+                if (!window.isNhostEnabled || !this.currentUser) return;
                 
                 try {
                     await supabase
@@ -5331,7 +5508,7 @@
                 }
                 
                 try {
-                    if (isSupabaseEnabled) {
+                    if (window.isNhostEnabled) {
                         const { data, error } = await supabase
                             .from('groups')
                             .insert({
@@ -5378,7 +5555,7 @@
                 }
                 
                 try {
-                    if (isSupabaseEnabled) {
+                    if (window.isNhostEnabled) {
                         const { data, error } = await supabase
                             .from('channels')
                             .insert({
@@ -5414,7 +5591,7 @@
             
             async approveChannelRequest(requestId) {
                 try {
-                    if (isSupabaseEnabled) {
+                    if (window.isNhostEnabled) {
                         const { error } = await supabase
                             .from('channel_join_requests')
                             .update({
@@ -5438,7 +5615,7 @@
             
             async rejectChannelRequest(requestId) {
                 try {
-                    if (isSupabaseEnabled) {
+                    if (window.isNhostEnabled) {
                         const { error } = await supabase
                             .from('channel_join_requests')
                             .update({
@@ -5465,7 +5642,7 @@
                 
                 // Get group info
                 let group = null;
-                if (isSupabaseEnabled) {
+                if (window.isNhostEnabled) {
                     try {
                         const { data } = await supabase
                             .from('groups')
@@ -5542,7 +5719,7 @@
                 try {
                     let users = [];
                     
-                    if (isSupabaseEnabled) {
+                    if (window.isNhostEnabled) {
                         // Get users not already in the group
                         const { data: allUsers } = await supabase
                             .from('profiles')
@@ -5603,7 +5780,7 @@
             
             async addUserToGroup(groupId, userId, buttonElement) {
                 try {
-                    if (isSupabaseEnabled) {
+                    if (window.isNhostEnabled) {
                         const { error } = await supabase
                             .from('group_members')
                             .insert({
@@ -5632,7 +5809,7 @@
                 
                 // Get channel info
                 let channel = null;
-                if (isSupabaseEnabled) {
+                if (window.isNhostEnabled) {
                     try {
                         const { data } = await supabase
                             .from('channels')
@@ -5709,7 +5886,7 @@
                 try {
                     let users = [];
                     
-                    if (isSupabaseEnabled) {
+                    if (window.isNhostEnabled) {
                         // Get users not already in the channel
                         const { data: allUsers } = await supabase
                             .from('profiles')
@@ -5770,7 +5947,7 @@
             
             async addUserToChannel(channelId, userId, buttonElement) {
                 try {
-                    if (isSupabaseEnabled) {
+                    if (window.isNhostEnabled) {
                         const { error } = await supabase
                             .from('channel_members')
                             .insert({
@@ -5796,7 +5973,7 @@
             
             async showGroupSettings(groupId) {
                 let group = null;
-                if (isSupabaseEnabled) {
+                if (window.isNhostEnabled) {
                     try {
                         const { data } = await supabase.from('groups').select('*').eq('id', groupId).single();
                         group = data;
@@ -5864,7 +6041,7 @@
             
             async showChannelSettings(channelId) {
                 let channel = null;
-                if (isSupabaseEnabled) {
+                if (window.isNhostEnabled) {
                     try {
                         const { data } = await supabase.from('channels').select('*').eq('id', channelId).single();
                         channel = data;
@@ -5941,7 +6118,7 @@
             async openGroup(groupId) {
                 try {
                     let group = null;
-                    if (isSupabaseEnabled) {
+                    if (window.isNhostEnabled) {
                         const { data } = await supabase
                             .from('groups')
                             .select('*')
@@ -5969,7 +6146,7 @@
             async openChannel(channelId) {
                 try {
                     let channel = null;
-                    if (isSupabaseEnabled) {
+                    if (window.isNhostEnabled) {
                         const { data } = await supabase
                             .from('channels')
                             .select('*')
@@ -5996,7 +6173,7 @@
             
             async showMyGroups() {
                 let myGroups = [];
-                if (isSupabaseEnabled) {
+                if (window.isNhostEnabled) {
                     try {
                         const { data } = await supabase.from('groups').select('*').eq('creator_id', this.currentUser.id);
                         myGroups = data || [];
@@ -6053,7 +6230,7 @@
             
             async showMyChannels() {
                 let myChannels = [];
-                if (isSupabaseEnabled) {
+                if (window.isNhostEnabled) {
                     try {
                         const { data } = await supabase.from('channels').select('*').eq('creator_id', this.currentUser.id);
                         myChannels = data || [];
@@ -6152,7 +6329,7 @@
                         return;
                     }
                     
-                    if (isSupabaseEnabled) {
+                    if (window.isNhostEnabled) {
                         const { error } = await supabase
                             .from('groups')
                             .update({ name, description })
@@ -6181,7 +6358,7 @@
                         return;
                     }
                     
-                    if (isSupabaseEnabled) {
+                    if (window.isNhostEnabled) {
                         const { error } = await supabase
                             .from('channels')
                             .update({ name, description, is_disabled: isDisabled })
@@ -6214,7 +6391,7 @@
                     this.showNotification('Uploading group photo...', 'success');
                     
                     let photoUrl;
-                    if (isSupabaseEnabled) {
+                    if (window.isNhostEnabled) {
                         // Delete old photo if exists
                         const { data: oldGroup } = await supabase.from('groups').select('group_photo').eq('id', groupId).single();
                         if (oldGroup?.group_photo && oldGroup.group_photo.includes('supabase')) {
@@ -6271,7 +6448,7 @@
                     this.showNotification('Uploading channel photo...', 'success');
                     
                     let photoUrl;
-                    if (isSupabaseEnabled) {
+                    if (window.isNhostEnabled) {
                         // Delete old photo if exists
                         const { data: oldChannel } = await supabase.from('channels').select('channel_photo').eq('id', channelId).single();
                         if (oldChannel?.channel_photo && oldChannel.channel_photo.includes('supabase')) {
@@ -6338,7 +6515,7 @@
             async searchUsers(query, containerId = 'searchResults') {
                 let users = [];
                 
-                if (isSupabaseEnabled) {
+                if (window.isNhostEnabled) {
                     try {
                         // Search in Supabase profiles table
                         const { data, error } = await supabase
@@ -6367,7 +6544,7 @@
             }
 
             async searchByUid(uid) {
-                if (isSupabaseEnabled) {
+                if (window.isNhostEnabled) {
                     try {
                         const { data, error } = await supabase
                             .from('profiles')
