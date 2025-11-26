@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search - BusinessConnect</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/@nhost/nhost-js@latest"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .search-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .search-header {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .search-header h1 {
+            color: #1e40af;
+            margin-bottom: 8px;
+            font-size: 28px;
+        }
+
+        .search-box {
+            position: relative;
+            margin: 20px 0;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 16px 20px;
+            padding-right: 120px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #1e40af;
+            box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
+        }
+
+        .search-actions {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background: #1e40af;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1d4ed8;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .search-results {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .user-card {
+            display: flex;
+            align-items: center;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+
+        .user-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .user-avatar {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #1e40af, #06b6d4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 24px;
+            margin-right: 20px;
+            overflow: hidden;
+        }
+
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+        }
+
+        .user-info {
+            flex: 1;
+        }
+
+        .user-name {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+
+        .user-username {
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+
+        .user-details {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 8px;
+        }
+
+        .user-detail {
+            font-size: 14px;
+            color: #1e40af;
+            font-weight: 500;
+        }
+
+        .user-bio {
+            color: #4b5563;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .user-actions {
+            display: flex;
+            gap: 12px;
+            flex-direction: column;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #1e40af;
+            border: none;
+            padding: 12px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .back-btn:hover {
+            background: white;
+            transform: scale(1.1);
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b7280;
+        }
+
+        .no-results i {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b7280;
+        }
+
+        .loading i {
+            font-size: 32px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <button class="back-btn" onclick="window.location.href='index.html'">
+        <i class="fas fa-arrow-left"></i>
+    </button>
+
+    <div class="search-container">
+        <div class="search-header">
+            <h1><i class="fas fa-search"></i> Find Professionals</h1>
+            <p>Connect with industry professionals and expand your network</p>
+            
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Search by name, username, or email...">
+                <div class="search-actions">
+                    <button class="btn btn-secondary" onclick="showAllUsers()">
+                        <i class="fas fa-users"></i> All
+                    </button>
+                    <button class="btn btn-primary" onclick="performSearch()">
+                        <i class="fas fa-search"></i> Search
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="search-results">
+            <div id="searchResults">
+                <div class="no-results">
+                    <i class="fas fa-search"></i>
+                    <h3>Start Your Search</h3>
+                    <p>Enter a name, username, or email to find professionals</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Nhost Configuration
+        const NHOST_SUBDOMAIN = 'dvvouzofgfhzippzlnee';
+        const NHOST_REGION = 'eu-central-1';
+
+        let nhost;
+        let isNhostEnabled = false;
+        let currentUser = null;
+
+        try {
+            nhost = new window.NhostClient({
+                subdomain: NHOST_SUBDOMAIN,
+                region: NHOST_REGION
+            });
+            isNhostEnabled = true;
+            console.log('✅ Nhost initialized successfully');
+        } catch (error) {
+            console.log('❌ Nhost initialization error:', error);
+            isNhostEnabled = false;
+        }
+
+        // Get current user from localStorage
+        const savedUser = localStorage.getItem('businessconnect_current_user');
+        if (savedUser) {
+            currentUser = JSON.parse(savedUser);
+        }
+
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+
+        async function performSearch() {
+            const query = document.getElementById('searchInput').value.trim();
+            const resultsContainer = document.getElementById('searchResults');
+            
+            if (!query) {
+                showAllUsers();
+                return;
+            }
+
+            // Show loading
+            resultsContainer.innerHTML = `
+                <div class="loading">
+                    <i class="fas fa-spinner"></i>
+                    <h3>Searching...</h3>
+                    <p>Finding professionals for you</p>
+                </div>
+            `;
+
+            try {
+                let users = [];
+                
+                if (isNhostEnabled) {
+                    const { data, error } = await nhost.graphql.request(`
+                        query SearchUsers($query: String!, $currentUserId: uuid!) {
+                            users(where: {
+                                _and: [
+                                    {id: {_neq: $currentUserId}},
+                                    {_or: [
+                                        {username: {_ilike: $query}},
+                                        {full_name: {_ilike: $query}},
+                                        {email: {_ilike: $query}}
+                                    ]}
+                                ]
+                            }, limit: 20) {
+                                id
+                                username
+                                full_name
+                                email
+                                avatar_url
+                                bio
+                            }
+                        }
+                    `, {
+                        query: `%${query}%`,
+                        currentUserId: currentUser?.id || '00000000-0000-0000-0000-000000000000'
+                    });
+                    
+                    if (error) throw error;
+                    users = data.data.users || [];
+                } else {
+                    throw new Error('Database connection required');
+                }
+
+                displayResults(users);
+            } catch (error) {
+                console.error('Search error:', error);
+                resultsContainer.innerHTML = `
+                    <div class="no-results">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h3>Connection Error</h3>
+                        <p>Unable to connect to database. Please try again.</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function displayResults(users) {
+            const resultsContainer = document.getElementById('searchResults');
+            
+            if (!users || users.length === 0) {
+                resultsContainer.innerHTML = `
+                    <div class="no-results">
+                        <i class="fas fa-user-slash"></i>
+                        <h3>No Results Found</h3>
+                        <p>Try searching with different keywords</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Check follow status for each user
+            const usersWithFollowStatus = await Promise.all(users.map(async user => {
+                let isFollowing = false;
+                if (isNhostEnabled && currentUser) {
+                    const { data } = await nhost.graphql.request(`
+                        query CheckFollow($followerId: uuid!, $followingId: uuid!) {
+                            followers(where: {
+                                follower_id: {_eq: $followerId},
+                                following_id: {_eq: $followingId}
+                            }) {
+                                id
+                            }
+                        }
+                    `, {
+                        followerId: currentUser.id,
+                        followingId: user.id
+                    });
+                    isFollowing = data.data.followers.length > 0;
+                }
+                return { ...user, isFollowing };
+            }));
+
+            resultsContainer.innerHTML = usersWithFollowStatus.map(user => `
+                <div class="user-card">
+                    <div class="user-avatar">
+                        ${user.avatar_url ? 
+                            `<img src="${user.avatar_url}" alt="${user.full_name || user.username}">` :
+                            (user.full_name || user.username).charAt(0).toUpperCase()
+                        }
+                    </div>
+                    <div class="user-info">
+                        <div class="user-name">${user.full_name || user.username}</div>
+                        <div class="user-username">@${user.username}</div>
+                        <div class="user-details">
+                            <span class="user-detail"><i class="fas fa-envelope"></i> ${user.email}</span>
+                        </div>
+                        ${user.bio ? `<div class="user-bio">${user.bio}</div>` : ''}
+                    </div>
+                    <div class="user-actions">
+                        <button class="btn btn-primary" onclick="startChat('${user.id}')">
+                            <i class="fas fa-comment"></i> Message
+                        </button>
+                        <button class="btn" id="followBtn_${user.id}" style="background: ${user.isFollowing ? '#10b981' : '#6b7280'}; color: white;" onclick="${user.isFollowing ? `unfollowUser('${user.id}')` : `followUser('${user.id}')`}">
+                            <i class="fas fa-${user.isFollowing ? 'check' : 'user-plus'}"></i> ${user.isFollowing ? 'Following' : 'Follow'}
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function showAllUsers() {
+            const resultsContainer = document.getElementById('searchResults');
+            
+            // Show loading
+            resultsContainer.innerHTML = `
+                <div class="loading">
+                    <i class="fas fa-spinner"></i>
+                    <h3>Loading Users...</h3>
+                    <p>Fetching all professionals</p>
+                </div>
+            `;
+
+            try {
+                let users = [];
+                
+                if (isNhostEnabled) {
+                    const { data, error } = await nhost.graphql.request(`
+                        query GetAllUsers($currentUserId: uuid!) {
+                            users(where: {id: {_neq: $currentUserId}}, limit: 50) {
+                                id
+                                username
+                                full_name
+                                email
+                                avatar_url
+                                bio
+                            }
+                        }
+                    `, {
+                        currentUserId: currentUser?.id || '00000000-0000-0000-0000-000000000000'
+                    });
+                    
+                    if (error) throw error;
+                    users = data.data.users || [];
+                } else {
+                    throw new Error('Database connection required');
+                }
+
+                displayResults(users);
+            } catch (error) {
+                console.error('Load users error:', error);
+                resultsContainer.innerHTML = `
+                    <div class="no-results">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h3>Connection Error</h3>
+                        <p>Unable to connect to database. Please try again.</p>
+                    </div>
+                `;
+            }
+        }
+        
+
+
+        async function startChat(userId) {
+            if (!currentUser) {
+                alert('Please login first');
+                return;
+            }
+            
+            // Store the user ID to start chat with
+            localStorage.setItem('start_chat_with', userId);
+            
+            // Redirect back to main app
+            window.location.href = 'index.html';
+        }
+
+        async function followUser(userId) {
+            if (!currentUser) {
+                alert('Please login first');
+                return;
+            }
+
+            const followBtn = document.getElementById(`followBtn_${userId}`);
+            const originalText = followBtn.innerHTML;
+            followBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Following...';
+            followBtn.disabled = true;
+
+            try {
+                if (isNhostEnabled) {
+                    const { error } = await nhost.graphql.request(`
+                        mutation InsertFollow($follow: followers_insert_input!) {
+                            insert_followers_one(object: $follow) {
+                                id
+                            }
+                        }
+                    `, {
+                        follow: {
+                            follower_id: currentUser.id,
+                            following_id: userId
+                        }
+                    });
+                    
+                    if (error) {
+                        if (error.message.includes('duplicate')) {
+                            followBtn.innerHTML = '<i class="fas fa-check"></i> Following';
+                            followBtn.style.background = '#10b981';
+                            followBtn.setAttribute('onclick', `unfollowUser('${userId}')`);
+                            followBtn.disabled = false;
+                            return;
+                        } else {
+                            throw error;
+                        }
+                    }
+                }
+                
+                followBtn.innerHTML = '<i class="fas fa-check"></i> Following';
+                followBtn.style.background = '#10b981';
+                followBtn.setAttribute('onclick', `unfollowUser('${userId}')`);
+                followBtn.disabled = false;
+                
+                localStorage.setItem('feed_refresh', Date.now().toString());
+                
+                // Show success notification
+                const notification = document.createElement('div');
+                notification.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #10b981; color: white; padding: 12px 20px; border-radius: 8px; z-index: 10000; font-weight: 600; box-shadow: 0 4px 15px rgba(0,0,0,0.2);';
+                notification.innerHTML = '<i class="fas fa-check"></i> User followed! They will be notified.';
+                document.body.appendChild(notification);
+                setTimeout(() => notification.remove(), 3000);
+                
+            } catch (error) {
+                console.error('Follow error:', error);
+                followBtn.innerHTML = originalText;
+                followBtn.disabled = false;
+                alert('Failed to follow user');
+            }
+        }
+        
+        async function unfollowUser(userId) {
+            if (!currentUser) return;
+
+            const followBtn = document.getElementById(`followBtn_${userId}`);
+            followBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Unfollowing...';
+            followBtn.disabled = true;
+
+            try {
+                if (isNhostEnabled) {
+                    const { error } = await nhost.graphql.request(`
+                        mutation DeleteFollow($followerId: uuid!, $followingId: uuid!) {
+                            delete_followers(where: {
+                                follower_id: {_eq: $followerId},
+                                following_id: {_eq: $followingId}
+                            }) {
+                                affected_rows
+                            }
+                        }
+                    `, {
+                        followerId: currentUser.id,
+                        followingId: userId
+                    });
+                    
+                    if (error) throw error;
+                }
+                
+                followBtn.innerHTML = '<i class="fas fa-user-plus"></i> Follow';
+                followBtn.style.background = '#6b7280';
+                followBtn.setAttribute('onclick', `followUser('${userId}')`);
+                followBtn.disabled = false;
+                
+                localStorage.setItem('feed_refresh', Date.now().toString());
+                
+            } catch (error) {
+                console.error('Unfollow error:', error);
+                followBtn.innerHTML = '<i class="fas fa-check"></i> Following';
+                followBtn.disabled = false;
+            }
+        }
+
+        // Auto-focus search input and load all users on page load
+        document.getElementById('searchInput').focus();
+        
+        // Load all users when page loads
+        window.addEventListener('load', () => {
+            console.log('🔄 Page loaded, testing connection...');
+            testConnection();
+        });
+        
+        async function testConnection() {
+            try {
+                if (isNhostEnabled) {
+                    console.log('🔍 Testing Nhost connection...');
+                    const { data, error } = await nhost.graphql.request(`
+                        query TestConnection {
+                            users(limit: 1) {
+                                id
+                            }
+                        }
+                    `);
+                    if (error) {
+                        console.error('❌ Connection test failed:', error);
+                        isNhostEnabled = false;
+                        document.getElementById('searchResults').innerHTML = `
+                            <div class="no-results">
+                                <i class="fas fa-database"></i>
+                                <h3>Database Offline</h3>
+                                <p>Please try again later</p>
+                            </div>
+                        `;
+                    } else {
+                        console.log('✅ Connection successful, loading users...');
+                        showAllUsers();
+                    }
+                } else {
+                    console.log('📱 Database not available');
+                    document.getElementById('searchResults').innerHTML = `
+                        <div class="no-results">
+                            <i class="fas fa-database"></i>
+                            <h3>Database Offline</h3>
+                            <p>Please try again later</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('❌ Connection error:', error);
+                isNhostEnabled = false;
+                document.getElementById('searchResults').innerHTML = `
+                    <div class="no-results">
+                        <i class="fas fa-database"></i>
+                        <h3>Database Offline</h3>
+                        <p>Please try again later</p>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

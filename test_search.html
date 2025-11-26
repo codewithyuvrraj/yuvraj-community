@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Search</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Test Search Results</h1>
+    <button onclick="testSearch()">Test Search</button>
+    <div id="results"></div>
+
+    <script>
+        const SUPABASE_URL = 'https://prxkbtexbgashpcmsjcp.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByeGtidGV4Ymdhc2hwY21zamNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzNjM4MjgsImV4cCI6MjA3NDkzOTgyOH0.rp2kWk6AQUAglx_-jeOqRjASdqXYOeI4FCtuxITRsws';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        async function testSearch() {
+            try {
+                console.log('Testing search...');
+                
+                // Get all profiles
+                const { data: allProfiles, error: allError } = await supabase
+                    .from('profiles')
+                    .select('*');
+                
+                console.log('All profiles:', allProfiles);
+                console.log('Total profiles:', allProfiles?.length);
+                
+                // Check which ones have valid data
+                const validProfiles = allProfiles?.filter(u => 
+                    u.username && 
+                    u.full_name && 
+                    u.username.trim() && 
+                    u.full_name.trim()
+                ) || [];
+                
+                console.log('Valid profiles:', validProfiles);
+                console.log('Valid count:', validProfiles.length);
+                
+                // Check dates
+                const recentProfiles = validProfiles.filter(u => {
+                    const thirtyDaysAgo = new Date();
+                    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                    const userDate = new Date(u.updated_at || u.created_at || '2025-01-01');
+                    return userDate > thirtyDaysAgo;
+                });
+                
+                console.log('Recent profiles:', recentProfiles);
+                console.log('Recent count:', recentProfiles.length);
+                
+                document.getElementById('results').innerHTML = `
+                    <h2>Search Test Results</h2>
+                    <p>Total profiles in DB: ${allProfiles?.length || 0}</p>
+                    <p>Valid profiles: ${validProfiles.length}</p>
+                    <p>Recent profiles (30 days): ${recentProfiles.length}</p>
+                    <h3>All Profiles:</h3>
+                    <pre>${JSON.stringify(allProfiles, null, 2)}</pre>
+                    <h3>Valid Profiles:</h3>
+                    <pre>${JSON.stringify(validProfiles, null, 2)}</pre>
+                    <h3>Recent Profiles:</h3>
+                    <pre>${JSON.stringify(recentProfiles, null, 2)}</pre>
+                `;
+                
+            } catch (error) {
+                console.error('Test error:', error);
+                document.getElementById('results').innerHTML = `Error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>
