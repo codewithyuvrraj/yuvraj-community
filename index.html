@@ -8,68 +8,17 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     
     <!-- Nhost SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@nhost/nhost-js@2.2.16/dist/index.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@nhost/nhost-js@2.2.2/dist/index.umd.min.js"></script>
     <script>
-        // Fallback if CDN fails
-        if (typeof window.NhostClient === 'undefined') {
-            console.log('⚠️ Primary CDN failed, trying backup...');
-            const script = document.createElement('script');
-            script.src = 'https://unpkg.com/@nhost/nhost-js@2.2.16/dist/index.umd.js';
-            script.onload = () => console.log('✅ Backup CDN loaded');
-            script.onerror = () => console.log('❌ Both CDNs failed - using local mode');
-            document.head.appendChild(script);
-        }
+        // Initialize Nhost immediately after SDK loads
+        window.nhost = new NhostClient({
+            subdomain: 'dvvouzofgfhzippzlnee',
+            region: 'eu-central-1'
+        });
+        window.isNhostEnabled = true;
+        console.log('✅ Nhost initialized successfully');
     </script>
-    <!-- Registration Fix -->
-    <script src="registration-fix.js"></script>
-    <!-- Simple Instant Chat -->
-    <script src="simple-instant-chat.js"></script>
-    <!-- Presence Manager -->
-    <script src="presence-manager.js"></script>
-    <!-- Auth Debug -->
-    <script src="auth-debug.js"></script>
-    <!-- Debug Chat -->
-    <script src="debug-chat.js"></script>
-    <!-- Test Messaging -->
-    <script src="test-messaging.js"></script>
-    <!-- Chat Settings -->
-    <script src="chat-settings.js"></script>
-    <!-- Chat Lock -->
-    <script src="chat-lock.js"></script>
-    <!-- Lock Manager -->
-    <script src="lock-manager.js"></script>
-    <!-- Group Chat Manager -->
-    <script src="group-chat.js"></script>
-    <!-- Groups and Channels Manager -->
-    <script src="groups-channels-manager.js"></script>
-    <!-- Group Notifications -->
-    <script src="group-notifications.js?v=2"></script>
-    <!-- Group Member Manager -->
-    <script src="group-member-manager.js?v=2"></script>
-    <!-- Group Leave Manager -->
-    <script src="group-leave-manager.js"></script>
-    <!-- Professional Settings -->
-    <script src="professional-settings.js"></script>
-    <!-- Email Change Manager -->
-    <script src="email-change-manager.js"></script>
-    <!-- Email Service -->
-    <script src="email-service.js"></script>
-    <!-- Real Email Change Manager -->
-    <script src="real-email-change-manager.js"></script>
-    <!-- Email Configuration -->
-    <script src="email-config.js"></script>
-    <!-- Debug Email Manager -->
-    <script src="debug-email.js"></script>
-    <!-- Simple Email Change Manager -->
-    <script src="simple-email-change.js"></script>
-    <!-- Test Fixes Script -->
-    <script src="test-fixes.js"></script>
-    <!-- Test Groups Script -->
-    <script src="test-groups.js"></script>
-    <!-- Demo Setup Script -->
-    <script src="demo-setup.js"></script>
-    <!-- Test Groups Display -->
-    <script src="test-groups-display.js"></script>
+
     
     <style>
         /* Reset and Base Styles */
@@ -1771,78 +1720,41 @@
     <!-- File Upload Input -->
     <input type="file" id="hiddenFileInput" style="display: none;" multiple>
     <input type="file" id="profilePhotoInput" style="display: none;" accept="image/*">
+    
+    <!-- Load app scripts after Nhost is initialized -->
+    <script src="registration-fix.js"></script>
+    <script src="simple-instant-chat.js"></script>
+    <script src="presence-manager.js"></script>
+    <script src="auth-debug.js"></script>
+    <script src="debug-chat.js"></script>
+    <script src="test-messaging.js"></script>
+    <script src="chat-settings.js"></script>
+    <script src="chat-lock.js"></script>
+    <script src="lock-manager.js"></script>
+    <script src="group-chat.js"></script>
+    <script src="groups-channels-manager.js"></script>
+    <script src="group-notifications.js?v=2"></script>
+    <script src="group-member-manager.js?v=2"></script>
+    <script src="group-leave-manager.js"></script>
+    <script src="professional-settings.js"></script>
+    <script src="email-change-manager.js"></script>
+    <script src="email-service.js"></script>
+    <script src="real-email-change-manager.js"></script>
+    <script src="email-config.js"></script>
+    <script src="debug-email.js"></script>
+    <script src="simple-email-change.js"></script>
+    <script src="test-fixes.js"></script>
+    <script src="test-groups.js"></script>
+    <script src="demo-setup.js"></script>
+    <script src="test-groups-display.js"></script>
 
     <script>
         // Nhost Configuration
         const NHOST_SUBDOMAIN = 'dvvouzofgfhzippzlnee';
         const NHOST_REGION = 'eu-central-1';
-
-        // Initialize Nhost with retry mechanism
-        let nhost;
-        let isNhostEnabled = false;
-
-        function initializeNhost() {
-            console.log('🔄 Initializing Nhost...');
-            
-            try {
-                // Check multiple possible SDK locations
-                const NhostClient = window.NhostClient || window.nhost?.NhostClient;
-                
-                if (NhostClient) {
-                    nhost = new NhostClient({
-                        subdomain: NHOST_SUBDOMAIN,
-                        region: NHOST_REGION
-                    });
-                    isNhostEnabled = true;
-                    console.log('✅ Nhost initialized successfully');
-                    console.log('📍 Endpoint:', `https://${NHOST_SUBDOMAIN}.nhost.run`);
-                    
-                    // Test connection
-                    nhost.auth.getUser().then(user => {
-                        if (user) {
-                            console.log('✅ Nhost session active:', user.email);
-                        } else {
-                            console.log('ℹ️ No active Nhost session');
-                        }
-                    }).catch(err => {
-                        console.log('⚠️ Nhost auth check failed:', err.message);
-                    });
-                } else {
-                    console.log('❌ Nhost SDK not found, using local fallback');
-                    console.log('🔍 Available:', Object.keys(window).filter(k => k.toLowerCase().includes('nhost')));
-                    isNhostEnabled = false;
-                }
-            } catch (error) {
-                console.log('❌ Nhost initialization error:', error);
-                isNhostEnabled = false;
-            }
-            
-            // Make globally accessible
-            window.nhost = nhost;
-            window.isNhostEnabled = isNhostEnabled;
-            window.NHOST_SUBDOMAIN = NHOST_SUBDOMAIN;
-            window.NHOST_REGION = NHOST_REGION;
-            
-            // Initialize auth after Nhost is ready
-            if (window.authManager) {
-                window.authManager.initializeAuth();
-            }
-        }
         
-        // Try multiple initialization attempts
-        let initAttempts = 0;
-        function tryInitialize() {
-            initAttempts++;
-            if (typeof window.NhostClient !== 'undefined' || initAttempts > 10) {
-                initializeNhost();
-            } else {
-                console.log(`⏳ Waiting for Nhost SDK... (attempt ${initAttempts})`);
-                setTimeout(tryInitialize, 500);
-            }
-        }
-        
-        // Start initialization
-        tryInitialize();
+        // Nhost is already initialized above
+        console.log('🔄 BusinessConnect initializing...');
 
         // Auto-start chat if link is opened
         function checkChatLink() {
@@ -1859,6 +1771,33 @@
 
         // Run when app starts
         window.addEventListener("load", checkChatLink);
+        
+        // Initialize AuthManager
+        window.authManager = new AuthManager();
+        console.log('✅ BusinessConnect initialized successfully');
+        
+        // Add missing functions to window for global access
+        window.testNhostConnection = function() {
+            console.log('Testing Nhost connection...');
+            console.log('Nhost enabled:', window.isNhostEnabled);
+            console.log('Nhost instance:', window.nhost);
+            if (window.nhost) {
+                console.log('Current user:', window.nhost.auth.getUser());
+            }
+        };
+        
+        window.checkNhostStatus = function() {
+            return {
+                enabled: window.isNhostEnabled,
+                instance: !!window.nhost,
+                user: window.nhost ? window.nhost.auth.getUser() : null
+            };
+        };
+        
+        window.initializeNhost = function() {
+            console.log('Nhost already initialized');
+            return window.nhost;
+        };
 
         // Authentication Manager
         class AuthManager {
@@ -1867,15 +1806,15 @@
                 this.users = JSON.parse(localStorage.getItem('businessconnect_users') || '[]');
                 this.currentGroupsData = [];
                 
-                // Don't initialize auth immediately - wait for Nhost
-                setTimeout(() => this.initializeAuth(), 1000);
+                // Initialize auth immediately since Nhost is already loaded
+                this.initializeAuth();
             }
 
             async initializeAuth() {
                 // Check for Nhost session first
                 if (window.isNhostEnabled && window.nhost) {
                     try {
-                        const user = await window.nhost.auth.getUser();
+                        const user = window.nhost.auth.getUser();
                         if (user) {
                             console.log('✅ Found Nhost session for:', user.email);
                             
@@ -1943,7 +1882,7 @@
                         console.log('Attempting Nhost login for:', email);
                         
                         // Try Nhost Auth
-                        const { session, error } = await nhost.auth.signIn({
+                        const { session, error } = await window.nhost.auth.signIn({
                             email: email,
                             password: password
                         });
@@ -1954,7 +1893,7 @@
                         console.log('Nhost auth successful, UID:', uid);
 
                         // Fetch user profile from users table
-                        const { data: profile, error: profileError } = await nhost.graphql.request(`
+                        const { data: profile, error: profileError } = await window.nhost.graphql.request(`
                             query GetUser($id: uuid!) {
                                 users_by_pk(id: $id) {
                                     id
@@ -2049,7 +1988,7 @@
                         
                         // Register with Nhost Auth
                         console.log('Attempting Nhost signup for:', email);
-                        const { session, error: authError } = await nhost.auth.signUp({
+                        const { session, error: authError } = await window.nhost.auth.signUp({
                             email: email,
                             password: password,
                             options: {
@@ -2075,7 +2014,7 @@
                         await new Promise(resolve => setTimeout(resolve, 1000));
                         
                         // Create user profile in users table
-                        const { data: userData, error: userError } = await nhost.graphql.request(`
+                        const { data: userData, error: userError } = await window.nhost.graphql.request(`
                             mutation InsertUser($user: users_insert_input!) {
                                 insert_users_one(object: $user, on_conflict: {constraint: users_pkey, update_columns: [full_name, username]}) {
                                     id
@@ -2106,7 +2045,7 @@
                             // Check if user already exists
                             if (userError.message && userError.message.includes('Uniqueness violation')) {
                                 console.log('User already exists, fetching existing profile');
-                                const { data: existingUser, error: fetchError } = await nhost.graphql.request(`
+                                const { data: existingUser, error: fetchError } = await window.nhost.graphql.request(`
                                     query GetUser($id: uuid!) {
                                         users_by_pk(id: $id) {
                                             id
@@ -2238,7 +2177,7 @@
             async logout() {
                 try {
                     if (window.isNhostEnabled && this.currentUser) {
-                        await nhost.auth.signOut();
+                        await window.nhost.auth.signOut();
                     }
                 } catch (error) {
                     console.error('Logout error:', error);
@@ -2439,17 +2378,17 @@
                         const fileName = `profile_${this.currentUser.id}_${Date.now()}.${file.name.split('.').pop()}`;
                         
                         try {
-                            const { fileMetadata, error } = await nhost.storage.upload({
+                            const { fileMetadata, error } = await window.nhost.storage.upload({
                                 file: file,
                                 name: fileName
                             });
                             
                             if (error) throw error;
                             
-                            photoUrl = nhost.storage.getPublicUrl({ fileId: fileMetadata.id });
+                            photoUrl = window.nhost.storage.getPublicUrl({ fileId: fileMetadata.id });
                             
                             // Update profile in database
-                            const { error: updateError } = await nhost.graphql.request(`
+                            const { error: updateError } = await window.nhost.graphql.request(`
                                 mutation UpdateUserAvatar($id: uuid!, $avatar_url: String!) {
                                     update_users_by_pk(pk_columns: {id: $id}, _set: {avatar_url: $avatar_url}) {
                                         id
@@ -2787,7 +2726,7 @@
                 
                 try {
                     // Query follows with user profiles using GraphQL
-                    const { data: followsData, error } = await nhost.graphql.request(`
+                    const { data: followsData, error } = await window.nhost.graphql.request(`
                         query GetFollows($userId: uuid!) {
                             followers(where: {follower_id: {_eq: $userId}}, limit: 20) {
                                 following_id
@@ -2890,7 +2829,7 @@
                     };
                     
                     if (window.isNhostEnabled) {
-                        const { error } = await nhost.graphql.request(`
+                        const { error } = await window.nhost.graphql.request(`
                             mutation UpdateUser($id: uuid!, $updates: users_set_input!) {
                                 update_users_by_pk(pk_columns: {id: $id}, _set: $updates) {
                                     id
@@ -2928,7 +2867,7 @@
                     let isFollowing = false;
                     if (window.isNhostEnabled) {
                         // Get user profile
-                        const { data: profileData, error: profileError } = await nhost.graphql.request(`
+                        const { data: profileData, error: profileError } = await window.nhost.graphql.request(`
                             query GetUser($id: uuid!) {
                                 users_by_pk(id: $id) {
                                     id
@@ -2948,7 +2887,7 @@
                         user = profileData.data.users_by_pk;
                         
                         // Check if following
-                        const { data: followData, error: followError } = await nhost.graphql.request(`
+                        const { data: followData, error: followError } = await window.nhost.graphql.request(`
                             query CheckFollow($follower_id: uuid!, $following_id: uuid!) {
                                 followers(where: {follower_id: {_eq: $follower_id}, following_id: {_eq: $following_id}}) {
                                     id
@@ -3063,7 +3002,7 @@
                 
                 try {
                     // Test connection and cache users
-                    const { data: allUsers, error } = await nhost.graphql.request(`
+                    const { data: allUsers, error } = await window.nhost.graphql.request(`
                         query GetAllUsers {
                             users(limit: 1000) {
                                 id
@@ -3094,7 +3033,7 @@
             async getAllUsersGlobally() {
                 if (window.isNhostEnabled) {
                     try {
-                        const { data, error } = await nhost.graphql.request(`
+                        const { data, error } = await window.nhost.graphql.request(`
                             query GetAllUsers {
                                 users(limit: 1000) {
                                     id
@@ -3381,7 +3320,7 @@
                 if (window.isNhostEnabled) {
                     try {
                         // Get basic stats from Nhost
-                        const { data: usersData } = await nhost.graphql.request(`
+                        const { data: usersData } = await window.nhost.graphql.request(`
                             query GetStats($userId: uuid!) {
                                 users_aggregate {
                                     aggregate {
@@ -3465,7 +3404,7 @@
                 try {
                     if (window.isNhostEnabled && this.currentUser) {
                         // Check influencer status from user profile
-                        const { data, error } = await nhost.graphql.request(`
+                        const { data, error } = await window.nhost.graphql.request(`
                             query GetUserInfluencerStatus($id: uuid!) {
                                 users_by_pk(id: $id) {
                                     is_influencer_business
@@ -3582,7 +3521,7 @@
                 
                 try {
                     if (window.isNhostEnabled) {
-                        const { error } = await nhost.graphql.request(`
+                        const { error } = await window.nhost.graphql.request(`
                             mutation UpdateInfluencerStatus($id: uuid!, $is_influencer_business: Boolean!, $influencer_activated_at: timestamptz!) {
                                 update_users_by_pk(pk_columns: {id: $id}, _set: {
                                     is_influencer_business: $is_influencer_business,
@@ -3664,7 +3603,7 @@
             async disableInfluencerMode() {
                 try {
                     if (window.isNhostEnabled) {
-                        const { error } = await nhost.graphql.request(`
+                        const { error } = await window.nhost.graphql.request(`
                             mutation DisableInfluencerStatus($id: uuid!) {
                                 update_users_by_pk(pk_columns: {id: $id}, _set: {
                                     is_influencer_business: false
@@ -4131,6 +4070,97 @@
                     </div>
                 `;
                 document.body.appendChild(modal);
+            }
+            
+            toggleGroupsChannelsDropdown() {
+                const dropdown = document.getElementById('groupsChannelsDropdown');
+                if (dropdown.style.display === 'none') {
+                    dropdown.style.display = 'block';
+                } else {
+                    dropdown.style.display = 'none';
+                }
+            }
+            
+            hideGroupsChannelsDropdown() {
+                const dropdown = document.getElementById('groupsChannelsDropdown');
+                if (dropdown) {
+                    dropdown.style.display = 'none';
+                }
+            }
+            
+            async showJoinedGroups() {
+                try {
+                    const groups = await window.groupsChannelsManager.getJoinedGroups();
+                    this.displayGroupsModal(groups, 'Joined Groups', 'groups');
+                } catch (error) {
+                    console.error('Error loading joined groups:', error);
+                    this.showNotification('Failed to load joined groups', 'error');
+                }
+            }
+            
+            async showJoinedChannels() {
+                try {
+                    const channels = await window.groupsChannelsManager.getJoinedChannels();
+                    this.displayGroupsModal(channels, 'Joined Channels', 'channels');
+                } catch (error) {
+                    console.error('Error loading joined channels:', error);
+                    this.showNotification('Failed to load joined channels', 'error');
+                }
+            }
+            
+            showCreateGroupModal(type = 'groups') {
+                const modal = document.createElement('div');
+                modal.className = 'overlay';
+                modal.innerHTML = `
+                    <div class="settings-modal" style="max-width: 400px;">
+                        <div class="settings-header" style="background: ${type === 'groups' ? '#10b981' : '#f59e0b'}; color: white;">
+                            <h3><i class="fas fa-${type === 'groups' ? 'users' : 'broadcast-tower'}"></i> Create ${type === 'groups' ? 'Group' : 'Channel'}</h3>
+                            <button class="close-btn" onclick="this.closest('.overlay').remove()" style="color: white;">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="settings-content">
+                            <form id="createGroupForm">
+                                <div class="form-group">
+                                    <label>Name</label>
+                                    <input type="text" id="groupName" class="setting-input" style="width: 100%; max-width: none;" placeholder="Enter ${type === 'groups' ? 'group' : 'channel'} name" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Description</label>
+                                    <textarea id="groupDescription" class="setting-input" style="width: 100%; max-width: none; min-height: 60px; resize: vertical;" placeholder="Enter description (optional)"></textarea>
+                                </div>
+                                <button type="submit" class="btn" style="background: ${type === 'groups' ? '#10b981' : '#f59e0b'}; color: white; width: 100%;">
+                                    <i class="fas fa-plus"></i> Create ${type === 'groups' ? 'Group' : 'Channel'}
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                
+                document.getElementById('createGroupForm').addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const name = document.getElementById('groupName').value.trim();
+                    const description = document.getElementById('groupDescription').value.trim();
+                    
+                    if (!name) {
+                        this.showNotification('Name is required', 'error');
+                        return;
+                    }
+                    
+                    try {
+                        if (type === 'groups') {
+                            await window.groupsChannelsManager.createGroup(name, description);
+                        } else {
+                            await window.groupsChannelsManager.createChannel(name, description);
+                        }
+                        modal.remove();
+                        this.showNotification(`${type === 'groups' ? 'Group' : 'Channel'} created successfully!`, 'success');
+                    } catch (error) {
+                        console.error('Error creating:', error);
+                        this.showNotification(`Failed to create ${type === 'groups' ? 'group' : 'channel'}`, 'error');
+                    }
+                });
             }
             
             // Groups display functions
