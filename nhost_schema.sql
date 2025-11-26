@@ -121,11 +121,12 @@ CREATE TABLE deleted_conversations (
 -- ==========================
 
 CREATE TABLE groups (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     photo_url TEXT,
-    created_by UUID REFERENCES users(id),
-    created_at TIMESTAMP DEFAULT now()
+    created_by UUID REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT now(),
+    updated_at TIMESTAMP DEFAULT now()
 );
 
 CREATE TABLE group_members (
@@ -133,15 +134,26 @@ CREATE TABLE group_members (
     group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     role TEXT DEFAULT 'member', -- admin, member
-    joined_at TIMESTAMP DEFAULT now()
+    joined_at TIMESTAMP DEFAULT now(),
+    UNIQUE(group_id, user_id)
 );
 
 CREATE TABLE channels (
-    id UUID PRIMARY KEY,
-    group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
+    photo_url TEXT,
+    created_by UUID REFERENCES users(id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT now(),
-    photo_url TEXT
+    updated_at TIMESTAMP DEFAULT now()
+);
+
+CREATE TABLE channel_members (
+    id SERIAL PRIMARY KEY,
+    channel_id UUID REFERENCES channels(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    role TEXT DEFAULT 'subscriber', -- admin, subscriber
+    joined_at TIMESTAMP DEFAULT now(),
+    UNIQUE(channel_id, user_id)
 );
 
 -- ===================
@@ -261,8 +273,14 @@ CREATE INDEX idx_messages_sender_id ON messages(sender_id);
 CREATE INDEX idx_messages_created_at ON messages(created_at);
 
 -- Group indexes
+CREATE INDEX idx_groups_created_by ON groups(created_by);
 CREATE INDEX idx_group_members_group_id ON group_members(group_id);
 CREATE INDEX idx_group_members_user_id ON group_members(user_id);
+
+-- Channel indexes
+CREATE INDEX idx_channels_created_by ON channels(created_by);
+CREATE INDEX idx_channel_members_channel_id ON channel_members(channel_id);
+CREATE INDEX idx_channel_members_user_id ON channel_members(user_id);
 
 -- ============================
 -- SAMPLE DATA (OPTIONAL)

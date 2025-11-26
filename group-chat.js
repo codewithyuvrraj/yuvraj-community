@@ -9,19 +9,34 @@ class GroupChatManager {
         if (!window.authManager || !window.authManager.currentUser) return;
 
         try {
-            // Get group details with proper name
-            const { data: group, error } = await window.supabase
-                .from('groups')
-                .select('*')
-                .eq('id', groupId)
-                .single();
+            // Check if Nhost is available, otherwise use local fallback
+            let group;
+            if (window.isNhostEnabled) {
+                const { data: groupData, error } = await window.nhost.graphql.request(`
+                    query GetGroup($id: uuid!) {
+                        groups_by_pk(id: $id) {
+                            id
+                            name
+                            photo_url
+                            created_by
+                            created_at
+                        }
+                    }
+                `, { id: groupId });
 
-            if (error) throw error;
+                if (error || !groupData.data.groups_by_pk) throw new Error('Group not found');
+                group = groupData.data.groups_by_pk;
+            } else {
+                // Local fallback
+                const localGroups = JSON.parse(localStorage.getItem('businessconnect_groups') || '[]');
+                group = localGroups.find(g => g.id === groupId);
+                if (!group) throw new Error('Group not found');
+            }
 
             this.currentGroup = {
                 id: groupId,
                 name: group.name,
-                description: group.description,
+                photo_url: group.photo_url,
                 conversationId: 'group_' + groupId
             };
 
@@ -82,28 +97,44 @@ class GroupChatManager {
         container.innerHTML = '<div style="text-align: center; padding: 20px; color: #667781;"><i class="fas fa-circle" style="animation: pulse 1s infinite;"></i> <i class="fas fa-circle" style="animation: pulse 1s infinite 0.2s;"></i> <i class="fas fa-circle" style="animation: pulse 1s infinite 0.4s;"></i></div>';
 
         try {
-            const { data } = await window.supabase
-                .from('group_messages')
-                .select('*')
-                .eq('group_id', this.currentGroup.id)
-                .order('created_at', { ascending: true });
+            let messages = [];
             
-            // Get sender info separately for each message
-            if (data && data.length > 0) {
-                for (let msg of data) {
-                    if (msg.sender_id !== window.authManager.currentUser.id) {
-                        const { data: senderData } = await window.supabase
-                            .from('profiles')
-                            .select('id, full_name, username, profile_photo')
-                            .eq('id', msg.sender_id)
-                            .single();
-                        msg.sender = senderData;
+            if (window.isNhostEnabled) {
+                // Use Nhost GraphQL to get messages with sender info
+                const { data: messagesData, error } = await window.nhost.graphql.request(`
+                    query GetGroupMessages($groupId: uuid!) {
+                        messages(where: {conversation_id: {_eq: $groupId}}, order_by: {created_at: asc}) {
+                            id
+                            text
+                            sender_id
+                            created_at
+                            users {
+                                id
+                                full_name
+                                username
+                                avatar_url
+                            }
+                        }
                     }
+                `, { groupId: this.currentGroup.id });
+                
+                if (!error && messagesData.data.messages) {
+                    messages = messagesData.data.messages.map(msg => ({
+                        id: msg.id,
+                        text: msg.text,
+                        sender_id: msg.sender_id,
+                        created_at: msg.created_at,
+                        sender: msg.users
+                    }));
                 }
+            } else {
+                // Local fallback
+                const localMessages = JSON.parse(localStorage.getItem(`group_messages_${this.currentGroup.id}`) || '[]');
+                messages = localMessages;
             }
 
             setTimeout(() => {
-                this.displayGroupMessages(data || []);
+                this.displayGroupMessages(messages);
             }, 300);
         } catch (error) {
             console.error('Error loading group messages:', error);
@@ -148,7 +179,7 @@ class GroupChatManager {
         
         const senderData = msg.sender || window.authManager.currentUser;
         const name = senderData.full_name || senderData.username;
-        const profilePhoto = senderData.profile_photo;
+        const profilePhoto = senderData.avatar_url || senderData.profile_photo;
         
         const avatarContent = profilePhoto ? 
             `<img src="${profilePhoto}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">` :
@@ -190,19 +221,44 @@ class GroupChatManager {
         this.addGroupMessageToUI(tempMsg);
 
         try {
-            const { data, error } = await window.supabase
-                .from('group_messages')
-                .insert({
-                    group_id: this.currentGroup.id,
-                    sender_id: window.authManager.currentUser.id,
-                    text: text
-                })
-                .select()
-                .single();
+            if (window.isNhostEnabled) {
+                // Use Nhost GraphQL to insert message
+                const { data: messageData, error } = await window.nhost.graphql.request(`
+                    mutation InsertMessage($message: messages_insert_input!) {
+                        insert_messages_one(object: $message) {
+                            id
+                            text
+                            sender_id
+                            created_at
+                        }
+                    }
+                `, {
+                    message: {
+                        conversation_id: this.currentGroup.id,
+                        sender_id: window.authManager.currentUser.id,
+                        text: text,
+                        message_type: 'text'
+                    }
+                });
 
-            if (!error && data) {
+                if (!error && messageData.data.insert_messages_one) {
+                    const element = document.querySelector('[data-message-id="' + tempMsg.id + '"]');
+                    if (element) element.setAttribute('data-message-id', messageData.data.insert_messages_one.id);
+                }
+            } else {
+                // Local fallback - save to localStorage
+                const localMessages = JSON.parse(localStorage.getItem(`group_messages_${this.currentGroup.id}`) || '[]');
+                const newMessage = {
+                    id: Date.now().toString(),
+                    text: text,
+                    sender_id: window.authManager.currentUser.id,
+                    created_at: new Date().toISOString()
+                };
+                localMessages.push(newMessage);
+                localStorage.setItem(`group_messages_${this.currentGroup.id}`, JSON.stringify(localMessages));
+                
                 const element = document.querySelector('[data-message-id="' + tempMsg.id + '"]');
-                if (element) element.setAttribute('data-message-id', data.id);
+                if (element) element.setAttribute('data-message-id', newMessage.id);
             }
         } catch (error) {
             console.error('Send group message error:', error);
@@ -252,29 +308,43 @@ class GroupChatManager {
             if (!this.currentGroup) return;
             
             try {
-                const { data } = await window.supabase
-                    .from('group_messages')
-                    .select('*')
-                    .eq('group_id', this.currentGroup.id)
-                    .order('created_at', { ascending: false })
-                    .limit(5);
+                let newMessages = [];
                 
-                // Get sender info for new messages
-                if (data && data.length > 0) {
-                    for (let msg of data) {
-                        if (msg.sender_id !== window.authManager.currentUser.id) {
-                            const { data: senderData } = await window.supabase
-                                .from('profiles')
-                                .select('id, full_name, username, profile_photo')
-                                .eq('id', msg.sender_id)
-                                .single();
-                            msg.sender = senderData;
+                if (window.isNhostEnabled) {
+                    const { data: messagesData, error } = await window.nhost.graphql.request(`
+                        query GetRecentGroupMessages($groupId: uuid!) {
+                            messages(where: {conversation_id: {_eq: $groupId}}, order_by: {created_at: desc}, limit: 5) {
+                                id
+                                text
+                                sender_id
+                                created_at
+                                users {
+                                    id
+                                    full_name
+                                    username
+                                    avatar_url
+                                }
+                            }
                         }
+                    `, { groupId: this.currentGroup.id });
+                    
+                    if (!error && messagesData.data.messages) {
+                        newMessages = messagesData.data.messages.map(msg => ({
+                            id: msg.id,
+                            text: msg.text,
+                            sender_id: msg.sender_id,
+                            created_at: msg.created_at,
+                            sender: msg.users
+                        }));
                     }
+                } else {
+                    // Local fallback
+                    const localMessages = JSON.parse(localStorage.getItem(`group_messages_${this.currentGroup.id}`) || '[]');
+                    newMessages = localMessages.slice(-5);
                 }
 
-                if (data && data.length > 0) {
-                    data.reverse().forEach(msg => {
+                if (newMessages && newMessages.length > 0) {
+                    newMessages.reverse().forEach(msg => {
                         if (!document.querySelector('[data-message-id="' + msg.id + '"]')) {
                             if (msg.sender_id !== window.authManager.currentUser.id) {
                                 this.addGroupMessageToUI(msg);
@@ -299,45 +369,34 @@ class GroupChatManager {
         if (!this.currentGroup) return;
         
         try {
-            // Try using the SQL function first
             let memberProfiles = [];
             
-            try {
-                const { data, error } = await window.supabase
-                    .rpc('get_group_members_with_profiles', { group_id_param: this.currentGroup.id });
+            if (window.isNhostEnabled) {
+                // Use Nhost GraphQL to get group members
+                const { data: membersData, error } = await window.nhost.graphql.request(`
+                    query GetGroupMembers($groupId: uuid!) {
+                        group_members(where: {group_id: {_eq: $groupId}}) {
+                            users {
+                                id
+                                full_name
+                                username
+                                avatar_url
+                                bio
+                            }
+                        }
+                    }
+                `, { groupId: this.currentGroup.id });
                 
-                if (!error && data) {
-                    memberProfiles = data.map(member => ({
-                        id: member.user_id,
-                        full_name: member.full_name,
-                        username: member.username,
-                        profile_photo: member.profile_photo,
-                        job_title: member.job_title,
-                        company: member.company
-                    }));
-                } else {
-                    throw new Error('Function not available');
+                if (!error && membersData.data.group_members) {
+                    memberProfiles = membersData.data.group_members.map(member => member.users);
                 }
-            } catch (funcError) {
-                console.log('SQL function not available, using fallback method');
-                
-                // Fallback: Get group members directly
-                const { data: members, error } = await window.supabase
-                    .from('group_members')
-                    .select('user_id')
-                    .eq('group_id', this.currentGroup.id);
-                
-                if (error) throw error;
-                
-                // Get member profiles
-                for (let member of members || []) {
-                    const { data: profile } = await window.supabase
-                        .from('profiles')
-                        .select('*')
-                        .eq('id', member.user_id)
-                        .single();
-                    if (profile) memberProfiles.push(profile);
-                }
+            } else {
+                // Local fallback
+                const localMembers = JSON.parse(localStorage.getItem(`group_members_${this.currentGroup.id}`) || '[]');
+                const allUsers = JSON.parse(localStorage.getItem('businessconnect_all_users') || '[]');
+                memberProfiles = localMembers.map(memberId => 
+                    allUsers.find(user => user.id === memberId)
+                ).filter(Boolean);
             }
             
             this.displayGroupMembersModal(memberProfiles);
@@ -408,22 +467,45 @@ class GroupChatManager {
     
     async followMemberFromGroup(userId) {
         try {
-            if (window.isSupabaseEnabled) {
-                const { error } = await window.supabase
-                    .from('follows')
-                    .insert({
-                        follower_id: window.authManager.currentUser.id,
-                        following_id: userId
-                    });
+            if (window.isNhostEnabled) {
+                const { error } = await window.nhost.graphql.request(`
+                    mutation FollowUser($follower_id: uuid!, $following_id: uuid!) {
+                        insert_followers_one(object: {follower_id: $follower_id, following_id: $following_id}) {
+                            id
+                        }
+                    }
+                `, {
+                    follower_id: window.authManager.currentUser.id,
+                    following_id: userId
+                });
                 
                 if (error) {
-                    if (error.code === '23505') {
+                    if (error.message && error.message.includes('Uniqueness violation')) {
                         window.authManager.showNotification('You are already following this user', 'error');
                     } else {
                         throw error;
                     }
                     return;
                 }
+            } else {
+                // Local fallback
+                const localFollows = JSON.parse(localStorage.getItem('businessconnect_follows') || '[]');
+                const existingFollow = localFollows.find(f => 
+                    f.follower_id === window.authManager.currentUser.id && f.following_id === userId
+                );
+                
+                if (existingFollow) {
+                    window.authManager.showNotification('You are already following this user', 'error');
+                    return;
+                }
+                
+                localFollows.push({
+                    id: Date.now().toString(),
+                    follower_id: window.authManager.currentUser.id,
+                    following_id: userId,
+                    created_at: new Date().toISOString()
+                });
+                localStorage.setItem('businessconnect_follows', JSON.stringify(localFollows));
             }
             
             window.authManager.showNotification('User followed successfully!', 'success');
@@ -437,24 +519,38 @@ class GroupChatManager {
     // Add user to group and send notification
     async addUserToGroup(groupId, userId) {
         try {
-            // Add user to group_members table
-            const { error: memberError } = await window.supabase
-                .from('group_members')
-                .insert({
+            if (window.isNhostEnabled) {
+                // Add user to group_members table using Nhost GraphQL
+                const { error: memberError } = await window.nhost.graphql.request(`
+                    mutation AddGroupMember($group_id: uuid!, $user_id: uuid!) {
+                        insert_group_members_one(object: {group_id: $group_id, user_id: $user_id}) {
+                            id
+                        }
+                    }
+                `, {
                     group_id: groupId,
-                    user_id: userId,
-                    added_by: window.authManager.currentUser.id
+                    user_id: userId
                 });
-            
-            if (memberError) {
-                if (memberError.code === '23505') {
+                
+                if (memberError) {
+                    if (memberError.message && memberError.message.includes('Uniqueness violation')) {
+                        window.authManager.showNotification('User is already a member of this group', 'error');
+                        return false;
+                    }
+                    throw memberError;
+                }
+            } else {
+                // Local fallback
+                const localMembers = JSON.parse(localStorage.getItem(`group_members_${groupId}`) || '[]');
+                if (localMembers.includes(userId)) {
                     window.authManager.showNotification('User is already a member of this group', 'error');
                     return false;
                 }
-                throw memberError;
+                localMembers.push(userId);
+                localStorage.setItem(`group_members_${groupId}`, JSON.stringify(localMembers));
             }
             
-            // Send notification to the added user
+            // Send notification to the added user (if notification system exists)
             if (window.groupNotificationManager) {
                 await window.groupNotificationManager.notifyGroupAddition(
                     groupId, 
@@ -474,27 +570,41 @@ class GroupChatManager {
         }
     }
     
-    // Add user to channel and send notification
+    // Add user to channel and send notification  
     async addUserToChannel(channelId, userId) {
         try {
-            // Add user to channel_members table
-            const { error: memberError } = await window.supabase
-                .from('channel_members')
-                .insert({
+            if (window.isNhostEnabled) {
+                // Add user to channel_members table using Nhost GraphQL
+                const { error: memberError } = await window.nhost.graphql.request(`
+                    mutation AddChannelMember($channel_id: uuid!, $user_id: uuid!) {
+                        insert_channel_members_one(object: {channel_id: $channel_id, user_id: $user_id}) {
+                            id
+                        }
+                    }
+                `, {
                     channel_id: channelId,
-                    user_id: userId,
-                    added_by: window.authManager.currentUser.id
+                    user_id: userId
                 });
-            
-            if (memberError) {
-                if (memberError.code === '23505') {
+                
+                if (memberError) {
+                    if (memberError.message && memberError.message.includes('Uniqueness violation')) {
+                        window.authManager.showNotification('User is already a member of this channel', 'error');
+                        return false;
+                    }
+                    throw memberError;
+                }
+            } else {
+                // Local fallback
+                const localMembers = JSON.parse(localStorage.getItem(`channel_members_${channelId}`) || '[]');
+                if (localMembers.includes(userId)) {
                     window.authManager.showNotification('User is already a member of this channel', 'error');
                     return false;
                 }
-                throw memberError;
+                localMembers.push(userId);
+                localStorage.setItem(`channel_members_${channelId}`, JSON.stringify(localMembers));
             }
             
-            // Send notification to the added user
+            // Send notification to the added user (if notification system exists)
             if (window.groupNotificationManager) {
                 await window.groupNotificationManager.notifyChannelAddition(
                     channelId, 
@@ -524,6 +634,134 @@ class GroupChatManager {
         // For now, channels work similar to groups
         // You can extend this for channel-specific functionality
         await this.startGroupChat(channelId);
+    }
+    
+    // Create new group
+    async createGroup(name, description = '', photoUrl = null) {
+        try {
+            if (window.isNhostEnabled) {
+                const { data: groupData, error } = await window.nhost.graphql.request(`
+                    mutation CreateGroup($group: groups_insert_input!) {
+                        insert_groups_one(object: $group) {
+                            id
+                            name
+                            photo_url
+                            created_by
+                            created_at
+                        }
+                    }
+                `, {
+                    group: {
+                        name: name,
+                        description: description,
+                        photo_url: photoUrl,
+                        created_by: window.authManager.currentUser.id
+                    }
+                });
+                
+                if (error) {
+                    console.error('Nhost group creation error:', error);
+                    throw error;
+                }
+                
+                if (!groupData?.data?.insert_groups_one) {
+                    throw new Error('No group data returned from Nhost');
+                }
+                
+                const newGroup = groupData.data.insert_groups_one;
+                
+                // Add creator as first member
+                await this.addUserToGroup(newGroup.id, window.authManager.currentUser.id);
+                
+                return newGroup;
+            } else {
+                // Local fallback
+                const localGroups = JSON.parse(localStorage.getItem('businessconnect_groups') || '[]');
+                const newGroup = {
+                    id: Date.now().toString(),
+                    name: name,
+                    photo_url: photoUrl,
+                    created_by: window.authManager.currentUser.id,
+                    created_at: new Date().toISOString()
+                };
+                
+                localGroups.push(newGroup);
+                localStorage.setItem('businessconnect_groups', JSON.stringify(localGroups));
+                
+                // Add creator as first member
+                const localMembers = [window.authManager.currentUser.id];
+                localStorage.setItem(`group_members_${newGroup.id}`, JSON.stringify(localMembers));
+                
+                return newGroup;
+            }
+        } catch (error) {
+            console.error('Error creating group:', error);
+            throw error;
+        }
+    }
+    
+    // Create new channel
+    async createChannel(name, description = '', photoUrl = null) {
+        try {
+            if (window.isNhostEnabled) {
+                const { data: channelData, error } = await window.nhost.graphql.request(`
+                    mutation CreateChannel($channel: channels_insert_input!) {
+                        insert_channels_one(object: $channel) {
+                            id
+                            name
+                            photo_url
+                            created_by
+                            created_at
+                        }
+                    }
+                `, {
+                    channel: {
+                        name: name,
+                        description: description,
+                        photo_url: photoUrl,
+                        created_by: window.authManager.currentUser.id
+                    }
+                });
+                
+                if (error) {
+                    console.error('Nhost channel creation error:', error);
+                    throw error;
+                }
+                
+                if (!channelData?.data?.insert_channels_one) {
+                    throw new Error('No channel data returned from Nhost');
+                }
+                
+                const newChannel = channelData.data.insert_channels_one;
+                
+                // Add creator as first member
+                await this.addUserToChannel(newChannel.id, window.authManager.currentUser.id);
+                
+                return newChannel;
+            } else {
+                // Local fallback
+                const localChannels = JSON.parse(localStorage.getItem('businessconnect_channels') || '[]');
+                const newChannel = {
+                    id: Date.now().toString(),
+                    name: name,
+                    photo_url: photoUrl,
+                    created_by: window.authManager.currentUser.id,
+                    created_at: new Date().toISOString()
+                };
+                
+                localChannels.push(newChannel);
+                localStorage.setItem('businessconnect_channels', JSON.stringify(localChannels));
+                
+                // Add creator as first member
+                const localMembers = [window.authManager.currentUser.id];
+                localStorage.setItem(`channel_members_${newChannel.id}`, JSON.stringify(localMembers));
+                
+                return newChannel;
+            }
+        } catch (error) {
+            console.error('Error creating channel:', error);
+            throw error;
+        }
     }
 
     cleanup() {
