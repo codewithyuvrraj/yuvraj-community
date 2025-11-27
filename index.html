@@ -7,17 +7,8 @@
     <link rel="icon" type="image/png" href="logo.png" style="border-radius: 50%;">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     
-    <!-- Nhost SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@nhost/nhost-js@2.2.2/dist/index.umd.min.js"></script>
-    <script>
-        // Initialize Nhost immediately after SDK loads
-        window.nhost = new NhostClient({
-            subdomain: 'dvvouzofgfhzippzlnee',
-            region: 'eu-central-1'
-        });
-        window.isNhostEnabled = true;
-        console.log('✅ Nhost initialized successfully');
-    </script>
+    <!-- Simple Nhost Fix -->
+    <script src="simple-nhost-fix.js"></script>
 
     
     <style>
@@ -1747,6 +1738,17 @@
     <script src="test-groups.js"></script>
     <script src="demo-setup.js"></script>
     <script src="test-groups-display.js"></script>
+    <script src="test-nhost-connection.js"></script>
+    <script src="update_to_profiles.js"></script>
+    <script src="fix-nhost-groups.js"></script>
+    <script src="fix-groups-display.js"></script>
+    <script src="disable-broken-scripts.js"></script>
+    <script src="show-groups-ui.js"></script>
+    <script src="groups-button-handler.js"></script>
+    <script src="fix-group-creation.js"></script>
+    <script src="inline-group-form.js"></script>
+    <script src="group-chat-system.js"></script>
+    <script src="group-profile-picture.js"></script>
 
     <script>
         // Nhost Configuration
@@ -1771,10 +1773,6 @@
 
         // Run when app starts
         window.addEventListener("load", checkChatLink);
-        
-        // Initialize AuthManager
-        window.authManager = new AuthManager();
-        console.log('✅ BusinessConnect initialized successfully');
         
         // Add missing functions to window for global access
         window.testNhostConnection = function() {
@@ -1806,8 +1804,7 @@
                 this.users = JSON.parse(localStorage.getItem('businessconnect_users') || '[]');
                 this.currentGroupsData = [];
                 
-                // Initialize auth immediately since Nhost is already loaded
-                this.initializeAuth();
+                // Don't initialize immediately - wait for explicit call
             }
 
             async initializeAuth() {
@@ -7307,14 +7304,15 @@
         }
 
         // Initialize the application
-        try {
-            window.authManager = new AuthManager();
-            // ChatManager is initialized in external file
-            window.searchManager = new SearchManager();
-            
-            console.log('BusinessConnect initialized successfully');
-        } catch (error) {
-            console.error('Failed to initialize BusinessConnect:', error);
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                window.authManager = new AuthManager();
+                window.authManager.initializeAuth();
+                window.searchManager = new SearchManager();
+                
+                console.log('BusinessConnect initialized successfully');
+            } catch (error) {
+                console.error('Failed to initialize BusinessConnect:', error);
             document.body.innerHTML = `
                 <div style="display: flex; justify-content: center; align-items: center; height: 100vh; background: #f8fafc;">
                     <div style="text-align: center; padding: 40px; background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
@@ -7325,7 +7323,8 @@
                     </div>
                 </div>
             `;
-        }
+            }
+        });
     </script>
 </body>
 </html>
